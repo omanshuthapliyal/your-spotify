@@ -1,0 +1,13 @@
+{{ $id := printf "lr-%d" .Ordinal }}
+<iframe id="{{ $id }}" src="{{ .Get "src" | relURL }}#{{ .Get "section" | default "story" }}&embed"
+        title="{{ .Get "title" | default "Listening report" }}" loading="lazy" allowfullscreen
+        style="width:100%;border:0;min-height:640px"></iframe>
+<script>
+(function () {
+  var f = document.getElementById("{{ $id }}");
+  window.addEventListener("message", function (e) {
+    if (e.source === f.contentWindow && e.data && e.data.type === "listening-report:height")
+      f.style.height = e.data.height + "px";
+  });
+})();
+</script>

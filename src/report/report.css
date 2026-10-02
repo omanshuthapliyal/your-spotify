@@ -1,0 +1,11 @@
+/* Report-only tweaks on top of the app styles. */
+.report { max-width: 1100px; }
+.report-head { align-items: center; }
+.report-tabs { margin-bottom: 4px; }
+.report .board-row { cursor: default; }
+.report .board-row:hover { background: none; }
+.report-foot { margin: 12px 4px 0; }
+.report-foot p { margin: 4px 0; }
+.report.embed { padding-top: 8px; }
+.year-pick:disabled { cursor: default; color: inherit; }
+.report .top-grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }

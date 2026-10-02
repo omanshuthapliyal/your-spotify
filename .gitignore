@@ -1,0 +1,29 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+screenshots/
+# Never commit real exports
+my_spotify_data*
+*.zip
+!fixtures/**/*.zip
+*.personal.json
+Spotify*Account*Data*/
+fixtures/generated/
+.genre-cache.json
+artist-genres-*.csv
+
+# Personal genre mapping and cache (derived from your export; never commit)
+genres/*.local.csv
+genres/.genre-cache.json
+dist-test/
+dist-baked-test/
+genres/genre-tree.local.json
+genres/.enrich-cache.json
+public/art/
+genres/art-index.local.json
+dist-report/
+*.tsbuildinfo
+.DS_Store
+.claude/
+.env*

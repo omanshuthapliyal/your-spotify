@@ -1,0 +1,5 @@
+album,artist,year,type,match,musicbrainz_id
+Artist A Album,Artist A,1994,Album,exact,
+Artist B Album,Artist B,2011,Album,exact,
+Artist C Album,Artist C,1981,Album,exact,
+Artist D Album,Artist D,1965,Album,exact,

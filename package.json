@@ -1,0 +1,44 @@
+{
+  "name": "your-spotify",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "description": "Private, browser-only timeline of Spotify Extended Streaming History.",
+  "scripts": {
+    "dev": "npm run build:report && vite",
+    "build": "npm run build:report && tsc -b && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test && playwright test -c playwright.baked.config.ts",
+    "fixtures": "vite-node scripts/generate-fixtures.ts",
+    "typecheck": "tsc -b",
+    "genres": "vite-node scripts/musicbrainz-genres.ts --",
+    "enrich": "vite-node scripts/musicbrainz-enrich.ts --",
+    "covers": "vite-node scripts/cover-art.ts --",
+    "build:report": "vite build -c vite.report.config.ts"
+  },
+  "dependencies": {
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0",
+    "fflate": "^0.8.3",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.2.0",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vite-node": "^6.0.0",
+    "vitest": "^4.1.11"
+  }
+}

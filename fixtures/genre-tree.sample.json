@@ -1,0 +1,9 @@
+{ "source": "synthetic sample", "genres": {
+  "indie rock": { "parents": [{ "name": "rock", "rel": "subgenre" }] },
+  "rock": { "parents": [] },
+  "electronic": { "parents": [] },
+  "pop": { "parents": [] },
+  "jazz": { "parents": [] },
+  "soul": { "parents": [{ "name": "rhythm and blues", "rel": "subgenre" }] },
+  "rhythm and blues": { "parents": [] }
+} }

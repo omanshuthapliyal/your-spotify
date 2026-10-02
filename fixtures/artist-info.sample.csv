@@ -1,0 +1,5 @@
+artist,formed_year,ended_year,type,country,musicbrainz_id
+Artist A,1991,,Group,GB,
+Artist B,2005,,Person,US,
+Artist C,1978,1999,Group,US,
+Artist D,1962,,Person,,
