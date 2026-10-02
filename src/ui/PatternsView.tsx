@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { AggregateSettings } from '../core/aggregate';
 import type { Era, LifeKind, Patterns, SurvivalPoint, Taste } from '../core/patterns';
 import { LIFE_KINDS } from '../core/patterns';
@@ -11,6 +11,15 @@ import { fmtHours, fmtInt } from './format';
 import { StackedArea } from './StackedArea';
 import { Legend } from './Legend';
 import { ColistenExplorer } from './ColistenExplorer';
+import { useCompact } from './embed';
+
+/** Method notes: shown in full in the app, behind an "About this plot" toggle when embedded. */
+function Note({ children }: { children: ReactNode }) {
+  const compact = useCompact();
+  return compact
+    ? <details className="note-toggle"><summary>About this plot</summary><p className="muted small">{children}</p></details>
+    : <p className="muted small">{children}</p>;
+}
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -189,7 +198,7 @@ function Lifecycles({ life, theme, onOpenArtist }: { life: Patterns['life']; the
             </li>
           ))}
         </ol>
-        <p className="muted small">Bars: monthly listening, {monthLabel(life.firstMonth)} – {monthLabel(life.firstMonth + life.months - 1)}. Artists with 2+ hours and 10+ plays.</p>
+        <Note>Bars: monthly listening, {monthLabel(life.firstMonth)} – {monthLabel(life.firstMonth + life.months - 1)}. Artists with 2+ hours and 10+ plays.</Note>
       </div>
       <div data-testid="survival">
         <h4 className="sub-h">How long new artists last</h4>
@@ -198,10 +207,10 @@ function Lifecycles({ life, theme, onOpenArtist }: { life: Patterns['life']; the
           {s.halfLife !== null ? <>Half of the artists you discovered had stopped being played within <b>{s.halfLife.toFixed(0)} months</b>. </> : <>More than half of the artists you discovered are still being played. </>}
           {pct(s.afterYear)} were still being played a year after the first play.
         </p>
-        <p className="muted small">
+        <Note>
           Kaplan-Meier estimate over {fmtInt(s.artists)} artists first played 3+ months into the range and on 2+ different days ({fmtInt(s.singleDay)} one-day tries left out).
           “Stopped” means no plays in the last 6 months; artists still going count as lasting at least as long as so far.
-        </p>
+        </Note>
       </div>
     </div>
   );
@@ -228,6 +237,7 @@ export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSiz
   onEmbed?: (plot: string) => void;
 }) {
   const show = (x: PatternPlot) => !only || only === x;
+  const compact = useCompact();
   const [era, setEra] = useState<number | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
@@ -241,23 +251,31 @@ export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSiz
         <SecHead title="Who you play together" plot="map" onEmbed={onEmbed} />
         <p className="muted small chart-sub">Your top {p.map.nodes.length} artists, linked when you play them in the same listening sessions. Colours are groups of artists that keep showing up together; outlines mark each group. Bigger circles = more listening.</p>
         {p.map.nodes.length > 2 ? <ColistenExplorer map={p.map} theme={theme} onOpenArtist={onOpenArtist} mapSize={mapSize} onMapSize={onMapSize} /> : <p className="muted">Not enough sessions to map.</p>}
-        <p className="muted small">
+        <Note>
           {fmtInt(p.map.sessions)} sessions (no gap over 30 minutes). Link strength: sessions with both artists relative to each artist's sessions (Ochiai); each artist links to its 5 strongest partners.
           Groups: Louvain communities; group stability {p.map.stability.toFixed(2)} (adjusted Rand index across runs, 1 = identical). Bridges link into several groups. Groups are drawn as islands, related groups side by side: only links and groups carry meaning, not exact distances.
-        </p>
+        </Note>
       </section>}
 
       {show('eras') && e && <section className="card" id="p-eras" data-testid="eras">
         <SecHead title="Your listening eras" plot="eras" onEmbed={onEmbed} />
         <p className="muted small chart-sub">
-          Stretches of time with a distinct artist mix, found automatically. A boundary is kept only if it beats what the same method finds in your months shuffled at random.
+          Stretches of time with a distinct artist mix, found automatically{compact ? '. Tap an era for details.' : '. A boundary is kept only if it beats what the same method finds in your months shuffled at random.'}
         </p>
         {e.eras.length ? (
           <>
             <EraBand eras={e.eras} theme={theme} selected={era} onSelect={(i) => setEra(era === i ? null : i)} />
-            <ol className="era-cards">{shownEras.map((x) => <EraCard key={x.fromMonth} e={x} i={e.eras.indexOf(x)} onOpenArtist={onOpenArtist} />)}</ol>
+            {compact && era === null ? (
+              <ol className="era-mini era-pick">
+                {e.eras.map((x, i) => (
+                  <li key={i}><button type="button" className="link-like" onClick={() => setEra(i)}>
+                    <span className="swatch" style={{ background: theme.series[8 + (i % 8)] }} /> <b>{span(x.fromMonth, x.toMonth)}</b> {x.top.slice(0, 2).map((a) => a.name).join(', ')}
+                  </button></li>
+                ))}
+              </ol>
+            ) : <ol className="era-cards">{shownEras.map((x) => <EraCard key={x.fromMonth} e={x} i={e.eras.indexOf(x)} onOpenArtist={onOpenArtist} />)}</ol>}
             {era !== null && <button type="button" className="link" onClick={() => setEra(null)}>Show all eras</button>}
-            <p className="muted small">{e.eras.length} era{e.eras.length === 1 ? '' : 's'} (at most 10, each 3+ months) from {fmtInt(e.fittedMonths)} months{e.sparseMonths ? `; ${e.sparseMonths} sparse months join the era around them` : ''}. They account for {pct(e.explained)} of the month-to-month variation in your artist mix.</p>
+            <Note>{e.eras.length} era{e.eras.length === 1 ? '' : 's'} (at most 10, each 3+ months) from {fmtInt(e.fittedMonths)} months{e.sparseMonths ? `; ${e.sparseMonths} sparse months join the era around them` : ''}. They account for {pct(e.explained)} of the month-to-month variation in your artist mix.</Note>
           </>
         ) : <p className="muted">Not enough months with listening to find eras.</p>}
       </section>}
@@ -282,11 +300,13 @@ export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSiz
               <StackedArea result={t.result} metric="hours" shape="smooth" otherMode="below" width={twidth} theme={theme} highlight={pinned ?? hover} onSelect={() => undefined} />
             </div>
             <Legend result={t.result} metric="hours" theme={theme} pinned={pinned} otherMode="below" onHover={setHover} onTogglePin={(key) => setPinned(pinned === key ? null : key)} />
-            <ol className="taste-cards">{t.tastes.map((x) => <TasteCard key={x.index} t={x} theme={theme} onOpenArtist={onOpenArtist} />)}</ol>
-            <p className="muted small">
+            {compact
+              ? <details className="note-toggle"><summary>Artists in each taste</summary><ol className="taste-cards">{t.tastes.map((x) => <TasteCard key={x.index} t={x} theme={theme} onOpenArtist={onOpenArtist} />)}</ol></details>
+              : <ol className="taste-cards">{t.tastes.map((x) => <TasteCard key={x.index} t={x} theme={theme} onOpenArtist={onOpenArtist} />)}</ol>}
+            <Note>
               Non-negative matrix factorisation (a topic model) of your top {t.artists} artists over {t.fittedMonths} months; they cover {pct(t.modelledShare)} of your listening, the rest is below the line.
               Each play's hours are split across tastes, so the bands add up to your real listening. Stability compares five fits from different random starts.
-            </p>
+            </Note>
           </>
         ) : <p className="muted">Not enough listening to learn tastes.</p>}
       </section>}

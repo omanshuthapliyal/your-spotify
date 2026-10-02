@@ -90,4 +90,15 @@ describe('shareable report data', () => {
     const full = JSON.stringify(await report({})).length;
     expect(JSON.stringify(tl).length).toBeLessThan(full / 3);
   });
+
+  it('the Hugo shortcode knows every plot and its typical height', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { PLOTS, PLOT_HEIGHTS } = await import('../../src/report/plots');
+    const sc = readFileSync('docs/hugo-shortcode.html', 'utf8');
+    for (const p of PLOTS) {
+      const [phone, desktop] = PLOT_HEIGHTS[p.id] ?? [];
+      expect(phone, p.id).toBeGreaterThan(0);
+      expect(sc, p.id).toContain(`"${p.id}" (slice ${phone} ${desktop})`);
+    }
+  });
 });

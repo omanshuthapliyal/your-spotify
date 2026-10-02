@@ -265,13 +265,26 @@ For **Hugo**, put the files in `static/listening/` and copy
 [`docs/hugo-shortcode.html`](docs/hugo-shortcode.html) to `layouts/shortcodes/listening.html`:
 
 ```html
-{{/* Embed a listening report. section="albums" shows one report section; plot="map" one plot. */}}
+{{/*
+  Embed a listening report or one plot from it.
+    src      path of the exported file (e.g. "listening/map.html"), required
+    plot     one plot id (e.g. "map"); or section="albums" for a section of a full report
+    theme    "light", "dark" or "auto" (follows the reader's device; the default)
+    height   starting height in px, before the plot reports its own (default: typical per plot)
+    title    accessible title of the frame
+*/}}
 {{ $id := printf "lr-%d" .Ordinal }}
 {{ $target := .Get "section" | default "story" }}
 {{ with .Get "plot" }}{{ $target = printf "plot=%s" . }}{{ end }}
+{{ with .Get "theme" }}{{ $target = printf "%s&theme=%s" $target . }}{{ end }}
+{{ $sizes := dict "albums-eras" (slice 680 660) "albums-list" (slice 1210 1050) "albums-ranks" (slice 1010 790) "albums-timeline" (slice 1020 700) "albums-whole" (slice 1070 820) "artists-eras" (slice 680 660) "artists-list" (slice 1150 1000) "artists-ranks" (slice 830 720) "artists-timeline" (slice 830 610) "eras" (slice 400 350) "genres-list" (slice 580 500) "genres-timeline" (slice 610 550) "habits-age" (slice 300 280) "habits-calendar" (slice 450 580) "habits-comebacks" (slice 290 260) "habits-discovery" (slice 770 670) "habits-loyal" (slice 470 440) "habits-obsessions" (slice 930 700) "habits-sessions" (slice 790 600) "habits-shuffle" (slice 380 370) "habits-skips" (slice 1010 980) "habits-variety" (slice 460 410) "life" (slice 1280 1000) "map" (slice 860 880) "songs-eras" (slice 890 870) "songs-list" (slice 1850 1710) "songs-ranks" (slice 990 820) "songs-timeline" (slice 1000 740) "story" (slice 730 600) "tastes" (slice 860 730) }}
+{{ $h := slice 640 640 }}
+{{ with .Get "plot" }}{{ with index $sizes . }}{{ $h = . }}{{ end }}{{ end }}
+{{ with .Get "height" }}{{ $h = slice . . }}{{ end }}
+<style>#{{ $id }}{height:{{ index $h 1 }}px}@media (max-width:600px){#{{ $id }}{height:{{ index $h 0 }}px}}</style>
 <iframe id="{{ $id }}" src="{{ printf "%s#%s&embed" (.Get "src" | relURL) $target | safeURL }}"
         title="{{ .Get "title" | default "Listening report" }}" loading="lazy" allowfullscreen
-        style="width:100%;border:0;min-height:{{ .Get "height" | default "420" }}px"></iframe>
+        style="width:100%;border:0;display:block"></iframe>
 <script>
 (function () {
   var f = document.getElementById("{{ $id }}");
@@ -291,7 +304,14 @@ Then, anywhere in a post:
 {{< listening src="listening/albums-eras.html" plot="albums-eras" >}}
 ```
 
-Optional `height="500"` sets the height before the plot has loaded. Plot ids: `map`, `eras`,
+Options: `theme="light"` or `theme="dark"` fixes the plot's colours to match your blog (by
+default it follows the reader's device); `height="500"` overrides the starting height (by default
+each plot starts at its typical size, so the page does not jump while it loads).
+
+Embedded plots adapt to the reader's device: they fill the post's column, size themselves to
+their content, and use a compact layout (options in one menu, notes and secondary lists behind
+toggles) so they stay short on phones. On touch screens one finger scrolls the page and two
+fingers move or zoom the map; **Full screen** gives one-finger panning. Plot ids: `map`, `eras`,
 `tastes`, `life`, `artists-list`, `artists-eras`, `artists-timeline`, `artists-ranks` (and the
 same for `albums-` and `songs-`), `albums-whole`, `genres-timeline`, `genres-list`, `story`,
 `habits-discovery`, `habits-variety`, `habits-skips`, `habits-shuffle`, `habits-age`,

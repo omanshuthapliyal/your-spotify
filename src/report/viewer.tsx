@@ -7,6 +7,8 @@
  *  - #albums opens a section; add &embed (#albums&embed) to hide the header and section tabs.
  *  - #plot=map shows one plot on its own (any id from PLOTS whose data is in the file); a
  *    single-plot report (exported with "One plot") always shows its plot.
+ *  - &theme=light|dark|auto fixes the colours (auto follows the reader's device, the default).
+ * Embedded plots use a compact layout so they stay short on phones.
  */
 import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -26,6 +28,7 @@ import { TopListCard } from '../ui/Overview';
 import { WholeAlbumsBody } from '../ui/WholeAlbums';
 import { InsightsBody } from '../ui/InsightsView';
 import { PatternsBody, type PatternPlot } from '../ui/PatternsView';
+import { EmbedContext } from '../ui/embed';
 import '../styles.css';
 import './report.css';
 
@@ -33,14 +36,16 @@ type Tab = 'story' | 'artists' | 'albums' | 'songs' | 'genres' | 'habits' | 'pat
 const TAB_LABEL: Record<Tab, string> = { story: 'Story', artists: 'Artists', albums: 'Albums', songs: 'Songs', genres: 'Genres', habits: 'Habits', patterns: 'Patterns' };
 const DAY = 86_400_000;
 
-function readHash(tabs: Tab[]): { tab: Tab; embed: boolean; plot: string | null } {
+function readHash(tabs: Tab[]): { tab: Tab; embed: boolean; plot: string | null; theme: ThemePref | null } {
   // Decoded, since some site generators URL-escape the hash (plot%3Dmap).
   let raw = window.location.hash.replace(/^#/, '');
   try { raw = decodeURIComponent(raw); } catch { /* keep as is */ }
   const parts = raw.split('&');
   const tab = (tabs.find((t) => t === parts[0]) ?? tabs[0]) as Tab;
   const plot = parts.find((p) => p.startsWith('plot='))?.slice(5) ?? null;
-  return { tab, embed: parts.includes('embed') || new URLSearchParams(window.location.search).has('embed'), plot };
+  const t = parts.find((p) => p.startsWith('theme='))?.slice(6);
+  const theme: ThemePref | null = t === 'light' || t === 'dark' ? t : t === 'auto' ? 'system' : null;
+  return { tab, embed: parts.includes('embed') || new URLSearchParams(window.location.search).has('embed'), plot, theme };
 }
 
 type View = 'list' | 'whole' | 'eras' | 'timeline' | 'ranks';
@@ -158,19 +163,26 @@ function PlotView({ data, plot, theme, dayFmt, dateFmt }: {
 function Report({ data }: { data: ReportData }) {
   const tabs = (['story', 'artists', 'albums', 'songs', 'genres', 'habits', 'patterns'] as Tab[]).filter((t) => (t === 'story' ? data.story : data[t]));
   const [nav, setNav] = useState(() => readHash(tabs));
-  const [pref, setPref] = useState<ThemePref>('system');
+  const [pref, setPref] = useState<ThemePref>(() => nav.theme ?? 'system');
   const theme = useTheme(pref);
   useEffect(() => {
-    const on = () => setNav(readHash(tabs));
+    const on = () => { const n = readHash(tabs); setNav(n); if (n.theme) setPref(n.theme); };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // When embedded in an iframe, tell the parent page our height so it can size the frame.
+  // The content's own height (not scrollHeight, which never drops below the frame's current
+  // height, so the frame could grow but never shrink when something collapses).
   useEffect(() => {
     if (window.parent === window) return;
-    const post = () => window.parent.postMessage({ type: 'listening-report:height', height: document.documentElement.scrollHeight }, '*');
+    const root = document.getElementById('root') ?? document.body;
+    let last = 0;
+    const post = () => {
+      const h = Math.ceil(root.getBoundingClientRect().bottom + window.scrollY + parseFloat(getComputedStyle(document.body).marginBottom || '0'));
+      if (h !== last) { last = h; window.parent.postMessage({ type: 'listening-report:height', height: h }, '*'); }
+    };
     const ro = new ResizeObserver(post);
-    ro.observe(document.body);
+    ro.observe(root);
     post();
     return () => ro.disconnect();
   }, []);
@@ -182,18 +194,21 @@ function Report({ data }: { data: ReportData }) {
   const plot = plotById(data.plot ?? nav.plot);
   if (plot && plotAvailable(data, plot)) {
     return (
+      <EmbedContext.Provider value={{ compact: nav.embed }}>
       <div className={`app report report-plot${nav.embed ? ' embed' : ''}`} data-plot={plot.id}>
         <PlotView data={data} plot={plot} theme={theme} dayFmt={dayFmt} dateFmt={dateFmt} />
         <footer className="report-foot muted small">
           <p>{data.author ? `${data.author} · ` : ''}{data.rangeLabel ? `${data.rangeLabel} · ` : ''}Spotify listening, computed locally with your-spotify. No raw listening data is included; this page makes no network requests.</p>
         </footer>
       </div>
+      </EmbedContext.Provider>
     );
   }
 
   const go = (t: Tab) => { window.location.hash = nav.embed ? `${t}&embed` : t; };
   const tab = nav.tab;
   return (
+    <EmbedContext.Provider value={{ compact: nav.embed }}>
     <div className={`app report${nav.embed ? ' embed' : ''}`}>
       {!nav.embed && (
         <header className="app-header report-head">
@@ -233,6 +248,7 @@ function Report({ data }: { data: ReportData }) {
         <p>Generated {new Date(data.generatedAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })} with Listening Timeline. This page makes no network requests.</p>
       </footer>
     </div>
+    </EmbedContext.Provider>
   );
 }
 

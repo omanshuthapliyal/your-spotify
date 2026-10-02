@@ -17,6 +17,44 @@ export interface PlotInfo {
   genres?: boolean;
 }
 
+/**
+ * Typical embedded height in px [phone, desktop], measured on the compact embed layout. Used as
+ * the iframe's starting height so the page does not jump while the plot loads (the plot then
+ * reports its exact height). Mirrored in docs/hugo-shortcode.html; a unit test keeps them equal.
+ */
+export const PLOT_HEIGHTS: Record<string, [number, number]> = {
+  'albums-eras': [680, 660],
+  'albums-list': [1210, 1050],
+  'albums-ranks': [1010, 790],
+  'albums-timeline': [1020, 700],
+  'albums-whole': [1070, 820],
+  'artists-eras': [680, 660],
+  'artists-list': [1150, 1000],
+  'artists-ranks': [830, 720],
+  'artists-timeline': [830, 610],
+  'eras': [400, 350],
+  'genres-list': [580, 500],
+  'genres-timeline': [610, 550],
+  'habits-age': [300, 280],
+  'habits-calendar': [450, 580],
+  'habits-comebacks': [290, 260],
+  'habits-discovery': [770, 670],
+  'habits-loyal': [470, 440],
+  'habits-obsessions': [930, 700],
+  'habits-sessions': [790, 600],
+  'habits-shuffle': [380, 370],
+  'habits-skips': [1010, 980],
+  'habits-variety': [460, 410],
+  'life': [1280, 1000],
+  'map': [860, 880],
+  'songs-eras': [890, 870],
+  'songs-list': [1850, 1710],
+  'songs-ranks': [990, 820],
+  'songs-timeline': [1000, 740],
+  'story': [730, 600],
+  'tastes': [860, 730],
+};
+
 const kinds: Array<[ReportSection, string, string]> = [['artists', 'Artists', 'artists'], ['albums', 'Albums', 'albums'], ['songs', 'Songs', 'songs']];
 
 export const PLOTS: PlotInfo[] = [

@@ -520,7 +520,9 @@ button.hb-row:hover { background: var(--wash); }
 ul.group-list.group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 4px 10px; }
 ul.bridge-list { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; }
 .mapx-area { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
-.mapx-svg { display: block; touch-action: none; user-select: none; cursor: grab; }
+/* One finger scrolls the page; two-finger gestures are handled in script. Full screen pans with one finger. */
+.mapx-svg { display: block; touch-action: pan-x pan-y; user-select: none; -webkit-user-select: none; cursor: grab; }
+.mapx.full .mapx-svg { touch-action: none; }
 .mapx-svg:active { cursor: grabbing; }
 .mapx-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--ink); color: var(--surface); font-size: 12.5px; padding: 5px 12px; border-radius: 999px; pointer-events: none; }
 .mapx-legend { position: absolute; left: 10px; bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; max-width: calc(100% - 20px); }
@@ -545,3 +547,20 @@ ul.bridge-list { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; }
 .btn.btn-small { min-height: 28px; padding: 3px 10px; font-size: 12.5px; }
 .share-mode { margin: 4px 0 12px; }
 .share-plot select { min-width: min(100%, 360px); }
+
+/* ---- Compact (embedded) layout ---- */
+.mapx-tools.compact { flex-wrap: nowrap; align-items: center; }
+.mapx-tools.compact .mapx-search { flex: 1 1 auto; max-width: none; }
+.mapx-tools.compact .mapx-buttons { margin-left: 0; flex-wrap: nowrap; }
+@media (max-width: 560px) {
+  .mapx-tools.compact { flex-wrap: wrap; }
+  .mapx-tools.compact .mapx-search { flex-basis: 100%; }
+  .mapx-tools.compact .mapx-options { margin-right: auto; }
+}
+.mapx-options .menu-panel { min-width: 260px; }
+.mapx-menu-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+details.note-toggle, details.mapx-collapse { margin-top: 8px; }
+details.note-toggle > summary, details.mapx-collapse > summary { cursor: pointer; font-size: 13px; color: var(--muted); list-style-position: inside; padding: 4px 0; }
+details.note-toggle[open] > summary, details.mapx-collapse[open] > summary { color: var(--ink); }
+details.mapx-collapse { padding: 8px 14px; }
+.era-pick li button { display: inline-flex; align-items: center; gap: 6px; text-align: left; }

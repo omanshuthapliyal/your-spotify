@@ -79,6 +79,9 @@ test('one plot for embedding: Embed button, small file with only that plot, inte
   expect(file.suggestedFilename()).toBe('map.html');
   await expect(page.getByTestId('embed-snippet')).toContainText('map.html#plot=map&embed');
   await expect(page.getByTestId('hugo-snippet')).toHaveText('{{< listening src="listening/map.html" plot="map" >}}');
+  await page.getByRole('radio', { name: 'Always dark' }).click();
+  await expect(page.getByTestId('hugo-snippet')).toHaveText('{{< listening src="listening/map.html" plot="map" theme="dark" >}}');
+  await expect(page.getByTestId('embed-snippet')).toContainText('map.html#plot=map&theme=dark&embed');
   const html = readFileSync(await file.path(), 'utf8');
   const data = JSON.parse(html.match(/<script id="report-data" type="application\/json">([\s\S]*?)<\/script>/)![1]);
   expect(data.plot).toBe('map');
@@ -107,6 +110,18 @@ test('one plot for embedding: Embed button, small file with only that plot, inte
   await viewer.locator('[data-testid=colisten-map] circle[data-artist="Artist B"]').click();
   await expect(viewer.getByTestId('map-selection')).toContainText('Played most often with');
   await viewer.screenshot({ path: 'screenshots/report-map.png', fullPage: true });
+
+  // Embedded: compact layout (options in one menu, groups and notes collapsed) and a fixed theme.
+  await expect(viewer.getByTestId('colisten-explorer').getByText('Options')).toBeVisible();
+  await expect(viewer.getByLabel('Colour by')).toBeHidden();
+  await expect(viewer.locator('details.mapx-collapse')).not.toHaveAttribute('open', '');
+  await expect(viewer.locator('details.note-toggle summary', { hasText: 'About this plot' })).toBeVisible();
+  await viewer.goto(`file://${resolve('screenshots/sample-map.html')}#plot=map&theme=dark&embed`);
+  await expect(viewer.getByTestId('colisten-map')).toBeVisible();
+  expect(await viewer.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
+  // Not embedded: the full layout.
+  await viewer.goto(`file://${resolve('screenshots/sample-map.html')}`);
+  await expect(viewer.getByLabel('Colour by')).toBeVisible();
   expect(requests).toEqual([]);
   expect(errors).toEqual([]);
 });

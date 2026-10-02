@@ -1,4 +1,5 @@
 import type { ReportData } from './types';
+import { PLOT_HEIGHTS } from './plots';
 import { esc } from '../ui/exporter';
 
 /** Strict policy for the report file: inline code only, embedded images only, no network at all. */
@@ -70,7 +71,7 @@ export function reportHtml(data: ReportData, viewer: { js: string; css: string }
 
 /** Embed code for a report section (`story`, `albums`, ...) or one plot (`plot=map`). */
 export const EMBED_SNIPPET = (file: string, target: string) => `<iframe src="${file}#${target}&embed" title="My listening report" loading="lazy" allowfullscreen
-  style="width:100%;border:0;min-height:${target.startsWith('plot=') ? 420 : 640}px"></iframe>
+  style="width:100%;border:0;display:block;height:${PLOT_HEIGHTS[target.replace(/^plot=/, '')]?.[1] ?? 640}px"></iframe>
 <script>
   // Optional: let the report set its own height.
   addEventListener('message', (e) => {
@@ -80,5 +81,5 @@ export const EMBED_SNIPPET = (file: string, target: string) => `<iframe src="${f
 </script>`;
 
 /** Hugo shortcode call (docs/hugo-shortcode.html) for a file placed in static/listening/. */
-export const HUGO_SNIPPET = (file: string, plot: string | null) =>
-  plot ? `{{< listening src="listening/${file}" plot="${plot}" >}}` : `{{< listening src="listening/${file}" section="story" >}}`;
+export const HUGO_SNIPPET = (file: string, plot: string | null, theme: 'auto' | 'light' | 'dark' = 'auto') =>
+  `{{< listening src="listening/${file}" ${plot ? `plot="${plot}"` : 'section="story"'}${theme !== 'auto' ? ` theme="${theme}"` : ''} >}}`;

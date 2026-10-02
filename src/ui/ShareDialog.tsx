@@ -33,6 +33,7 @@ export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ file: string; size: number; plot: string | null } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [embedTheme, setEmbedTheme] = useState<'auto' | 'light' | 'dark'>('auto');
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', k);
@@ -65,7 +66,7 @@ export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot
     }
   };
   const copy = (key: string, text: string) => { navigator.clipboard?.writeText(text).then(() => setCopied(key)).catch(() => setCopied(null)); };
-  const target = done?.plot ? `plot=${done.plot}` : 'story';
+  const target = `${done?.plot ? `plot=${done.plot}` : 'story'}${embedTheme !== 'auto' ? `&theme=${embedTheme}` : ''}`;
 
   return (
     <div className="modal-back" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -145,11 +146,19 @@ export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot
               {done.plot ? 'To embed it in a post, upload the file next to the post and paste this:'
                 : <>To embed one section in a post, upload the file next to the post and paste this (change <code>story</code> to <code>artists</code>, <code>albums</code>, <code>songs</code>, <code>genres</code>, <code>habits</code> or <code>patterns</code>):</>}
             </p>
+            <div className="control"><span className="control-label">Colours in your post</span>
+              <div className="segmented" role="radiogroup" aria-label="Embed colours">
+                {([['auto', "Follow the reader's device"], ['light', 'Always light'], ['dark', 'Always dark']] as const).map(([v, l]) => (
+                  <button key={v} type="button" role="radio" aria-checked={embedTheme === v} className={embedTheme === v ? 'on' : ''} onClick={() => setEmbedTheme(v)}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <p className="muted small">Pick “Always light” or “Always dark” if your blog has one fixed look, so the plot matches it.</p>
             <pre className="snippet" data-testid="embed-snippet">{EMBED_SNIPPET(done.file, target)}</pre>
             <button type="button" className="btn" onClick={() => copy('html', EMBED_SNIPPET(done.file, target))}>{copied === 'html' ? 'Copied' : 'Copy embed code'}</button>
             <p className="muted small">Hugo, with the <code>listening</code> shortcode from the repo (<code>docs/hugo-shortcode.html</code>) and the file in <code>static/listening/</code>:</p>
-            <pre className="snippet" data-testid="hugo-snippet">{HUGO_SNIPPET(done.file, done.plot)}</pre>
-            <button type="button" className="btn" onClick={() => copy('hugo', HUGO_SNIPPET(done.file, done.plot))}>{copied === 'hugo' ? 'Copied' : 'Copy Hugo shortcode'}</button>
+            <pre className="snippet" data-testid="hugo-snippet">{HUGO_SNIPPET(done.file, done.plot, embedTheme)}</pre>
+            <button type="button" className="btn" onClick={() => copy('hugo', HUGO_SNIPPET(done.file, done.plot, embedTheme))}>{copied === 'hugo' ? 'Copied' : 'Copy Hugo shortcode'}</button>
           </div>
         )}
       </section>

@@ -1,8 +1,10 @@
 /**
- * Interactive co-listening map: zoom and pan (Ctrl/Cmd + scroll, pinch, drag, buttons), hover to
+ * Interactive co-listening map: zoom and pan (Ctrl/Cmd + scroll, two-finger touch, drag, buttons), hover to
  * light up an artist's partners, click to select, search, colour by group / discovery year /
  * lifecycle, group outlines, collision-free labels that thin out with zoom, fullscreen and SVG
- * download. Positions come from the worker (community-aware force layout); only links and groups
+ * download. On touch screens one finger scrolls the page and two fingers move or zoom the map
+ * (one finger pans in full screen). When embedded, a compact layout keeps it short on phones.
+ * Positions come from the worker (community-aware force layout); only links and groups
  * carry meaning.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
@@ -14,6 +16,7 @@ import type { Theme } from './theme';
 import { fmtHours, fmtInt } from './format';
 import { Segmented } from './Controls';
 import { saveBlob } from './download';
+import { useCompact } from './embed';
 
 type MapData = Patterns['map'];
 type ColorBy = 'group' | 'year' | 'life';
@@ -65,14 +68,15 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
   const [colorBy, setColorBy] = useState<ColorBy>('group');
   const [sizeBy, setSizeBy] = useState<SizeBy>('hours');
   const [query, setQuery] = useState('');
-  const [hint, setHint] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+  const compact = useCompact();
   const { nodes, edges, groups } = map;
 
   // The map fills the card width and (almost) the window height; the clusters are fitted and
   // centred in it whatever their overall shape.
   // Inside an iframe the window height follows our own content, so it cannot size the map.
   const winH = typeof window === 'undefined' || window.self !== window.top ? 10_000 : window.innerHeight;
-  const H = full ? Math.max(360, winH - 90) : W < 600 ? 460 : Math.round(Math.max(520, Math.min(winH - 120, W * 0.68, 900)));
+  const H = full ? Math.max(360, winH - 90) : W < 600 ? (compact ? 400 : 460) : Math.round(Math.max(compact ? 480 : 520, Math.min(winH - 120, W * (compact ? 0.78 : 0.68), 900)));
   const pad = W < 600 ? 34 : 56;
   const ext = useMemo(() => {
     const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
@@ -138,7 +142,7 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
     if (!el) return;
     let t: ReturnType<typeof setTimeout> | undefined;
     const onWheel = (e: WheelEvent) => {
-      if (!(e.ctrlKey || e.metaKey) && !document.fullscreenElement) { setHint(true); clearTimeout(t); t = setTimeout(() => setHint(false), 1400); return; }
+      if (!(e.ctrlKey || e.metaKey) && !document.fullscreenElement) { setHint('Hold Ctrl (or ⌘) and scroll to zoom, or use + and −'); clearTimeout(t); t = setTimeout(() => setHint(null), 1400); return; }
       e.preventDefault();
       const r = el.getBoundingClientRect();
       zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)));
@@ -147,14 +151,61 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
     return () => { el.removeEventListener('wheel', onWheel); clearTimeout(t); };
   }, [zoomAt]);
 
-  // Drag to pan, two pointers to pinch.
+  // Touch: one finger scrolls the page (with a hint); two fingers pan and zoom the map. In full
+  // screen there is no page to scroll, so pointer handling below takes over (one-finger pan).
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    let g: { mx: number; my: number; d: number } | null = null;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const pts = (e: TouchEvent) => {
+      const r = el.getBoundingClientRect();
+      const [a, b] = [e.touches[0], e.touches[1]];
+      return { mx: (a.clientX + b.clientX) / 2 - r.left, my: (a.clientY + b.clientY) / 2 - r.top, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) };
+    };
+    const onStart = (e: TouchEvent) => { if (!document.fullscreenElement && e.touches.length >= 2) { e.preventDefault(); g = pts(e); } };
+    const onTouchMove = (e: TouchEvent) => {
+      if (document.fullscreenElement) return;
+      if (e.touches.length < 2) {
+        setHint('Use two fingers to move or zoom the map'); clearTimeout(t); t = setTimeout(() => setHint(null), 1500);
+        return;
+      }
+      e.preventDefault();
+      const n = pts(e);
+      if (g) {
+        const v = viewRef.current;
+        const k = Math.max(0.6, Math.min(14, v.k * (n.d / (g.d || n.d))));
+        const tx = n.mx - (g.mx - v.tx) * (k / v.k), ty = n.my - (g.my - v.ty) * (k / v.k);
+        setView({ k, tx, ty });
+      }
+      g = n;
+    };
+    const onEnd = (e: TouchEvent) => { if (e.touches.length < 2) g = null; };
+    el.addEventListener('touchstart', onStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart); el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onEnd); el.removeEventListener('touchcancel', onEnd); clearTimeout(t);
+    };
+  }, []);
+
+  // Mouse and pen (and touch in full screen): drag to pan, two pointers to pinch. Outside full
+  // screen a touch only counts as a tap; dragging scrolls the page and cancels it.
+  const touchTap = (e: RPointerEvent) => e.pointerType === 'touch' && !document.fullscreenElement;
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const drag = useRef<{ x: number; y: number; moved: number; pinch: number | null; node: number | null } | null>(null);
   const local = (e: RPointerEvent) => { const r = svgRef.current!.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   const onDown = (e: RPointerEvent<SVGSVGElement>) => {
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    pointers.current.set(e.pointerId, local(e));
     const p = local(e);
+    if (touchTap(e)) {
+      const hit = (e.target as Element).closest?.('[data-node]');
+      drag.current = { x: p.x, y: p.y, moved: 0, pinch: null, node: hit ? Number(hit.getAttribute('data-node')) : null };
+      return;
+    }
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, p);
     // Pointer capture retargets later events to the svg, so remember which node was pressed now.
     const hit = (e.target as Element).closest?.('[data-node]');
     drag.current = { x: p.x, y: p.y, moved: 0, pinch: null, node: hit ? Number(hit.getAttribute('data-node')) : null };
@@ -164,6 +215,10 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
     }
   };
   const onMove = (e: RPointerEvent<SVGSVGElement>) => {
+    if (touchTap(e)) {
+      if (drag.current) { const p = local(e); drag.current.moved += Math.abs(p.x - drag.current.x) + Math.abs(p.y - drag.current.y); drag.current.x = p.x; drag.current.y = p.y; }
+      return;
+    }
     if (!drag.current || !pointers.current.has(e.pointerId)) return;
     const p = local(e);
     pointers.current.set(e.pointerId, p);
@@ -180,11 +235,13 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
     drag.current.x = p.x; drag.current.y = p.y;
     if (drag.current.moved > 3) setView((v) => ({ ...v, tx: v.tx + dx, ty: v.ty + dy }));
   };
+  /** Tap tolerance is a little larger for fingers. */
   const onUp = (e: RPointerEvent<SVGSVGElement>) => {
     pointers.current.delete(e.pointerId);
     const d = drag.current;
+    if (e.type === 'pointercancel') { if (pointers.current.size === 0) drag.current = null; return; }
     if (pointers.current.size === 0) {
-      if (d && d.moved <= 3) {
+      if (d && d.moved <= (e.pointerType === 'touch' ? 10 : 3)) {
         if (d.node !== null) setSelected(selected === d.node ? null : d.node);
         else { setSelected(null); setFocusGroup(null); }
       }
@@ -316,26 +373,70 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
       </div>
   ) : null;
 
+  const overview = (
+    <div>
+      <h4 className="sub-h">Groups</h4>
+      <ul className="group-list group-grid">
+        {groups.map((g) => (
+          <li key={g.index}>
+            <button type="button" className={focusGroup === g.index ? 'on' : ''} aria-pressed={focusGroup === g.index}
+              onClick={() => { if (focusGroup === g.index) reset(); else { setFocusGroup(g.index); fitTo(nodes.map((n, i) => (n.group === g.index ? i : -1)).filter((i) => i >= 0), 3); } }}>
+              <span className="group-name"><i className="swatch" style={{ background: groupColor(g.index) }} /> {g.label}</span>
+              <span className="partner-bar"><span style={{ width: `${(g.ms / maxGroupMs) * 100}%`, background: groupColor(g.index) }} /></span>
+              <span className="muted small">{g.artists} artists · {fmtHours(g.ms)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {bridges.length > 0 && (
+        <>
+          <h4 className="sub-h">Bridges between groups</h4>
+          <ul className="bridge-list" data-testid="bridges">
+            {bridges.map(({ n, i }) => (
+              <li key={n.id}><button type="button" className="link-like" onClick={() => pick(i)}>{n.name}</button>
+                <span className="muted small"> links {[nodes[i].group, ...linkedGroups(i)].length} groups</span></li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="muted small">Hover an artist to see who you play them with; click to select. Drag to move, Ctrl/⌘ + scroll or pinch to zoom.</p>
+    </div>
+  );
+
+  const fullButton = canFull ? <button type="button" className="btn ghost" onClick={toggleFull}>{full ? 'Exit full screen' : 'Full screen'}</button> : null;
+  const svgButton = <button type="button" className="btn ghost" onClick={download}>Download SVG</button>;
+  const options = (
+    <>
+      <Segmented<ColorBy> label="Colour by" value={colorBy} onChange={setColorBy} options={[['group', 'Group'], ['year', 'Discovered'], ['life', 'Lifecycle']]} />
+      <Segmented<SizeBy> label="Size by" value={sizeBy} onChange={setSizeBy} options={[['hours', 'Hours'], ['sessions', 'Sessions']]} />
+      {onMapSize && mapSize !== undefined && (
+        <label className="control"><span className="control-label">Artists</span>
+          <select value={mapSize} onChange={(e) => onMapSize(Number(e.target.value))} aria-label="Artists on the map">
+            {[75, 150, 250].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select></label>
+      )}
+      {compact && <div className="mapx-menu-actions">{fullButton}{svgButton}</div>}
+    </>
+  );
+
   return (
     <div ref={shellRef} className={`mapx${full ? ' full' : ''}`} data-testid="colisten-explorer">
-      <div className="mapx-tools">
+      <div className={`mapx-tools${compact ? ' compact' : ''}`}>
         <input type="search" className="mapx-search" placeholder="Find an artist on the map…" aria-label="Find an artist on the map" list="mapx-names"
           value={query} onChange={(e) => onSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && matches?.size) pick([...matches][0]); if (e.key === 'Escape') setQuery(''); }} />
         <datalist id="mapx-names">{nodes.map((n) => <option key={n.id} value={n.name} />)}</datalist>
-        <Segmented<ColorBy> label="Colour by" value={colorBy} onChange={setColorBy} options={[['group', 'Group'], ['year', 'Discovered'], ['life', 'Lifecycle']]} />
-        <Segmented<SizeBy> label="Size by" value={sizeBy} onChange={setSizeBy} options={[['hours', 'Hours'], ['sessions', 'Sessions']]} />
-        {onMapSize && mapSize !== undefined && (
-          <label className="control"><span className="control-label">Artists</span>
-            <select value={mapSize} onChange={(e) => onMapSize(Number(e.target.value))} aria-label="Artists on the map">
-              {[75, 150, 250].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select></label>
-        )}
+        {compact ? (
+          <details className="menu mapx-options">
+            <summary className="btn ghost">Options</summary>
+            <div className="menu-panel menu-right">{options}</div>
+          </details>
+        ) : options}
         <div className="mapx-buttons">
           <button type="button" className="btn ghost" aria-label="Zoom in" onClick={() => zoomAt(W / 2, H / 2, 1.6, true)}>+</button>
           <button type="button" className="btn ghost" aria-label="Zoom out" onClick={() => zoomAt(W / 2, H / 2, 1 / 1.6, true)}>−</button>
           <button type="button" className="btn ghost" onClick={reset}>Reset</button>
-          {canFull && <button type="button" className="btn ghost" onClick={toggleFull}>{full ? 'Exit full screen' : 'Full screen'}</button>}
-          <button type="button" className="btn ghost" onClick={download}>SVG</button>
+          {!compact && fullButton}
+          {!compact && svgButton}
         </div>
       </div>
       <div className="mapx-body">
@@ -396,7 +497,7 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
               ))}
             </g>
           </svg>
-          {hint && <div className="mapx-hint" role="status">Hold Ctrl (or ⌘) and scroll to zoom, or use + and −</div>}
+          {hint && <div className="mapx-hint" role="status">{hint}</div>}
           {colorBy === 'year' && (
             <div className="mapx-legend"><span>First played {years[0]}</span><span className="mapx-ramp" style={{ background: `linear-gradient(90deg, ${yearStops.join(',')})` }} /><span>{years[1]}</span></div>
           )}
@@ -410,35 +511,12 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
         {selectionPanel && !overlay && <div className="mapx-under" aria-live="polite">
           {selectionPanel}
         </div>}
-        <div className="mapx-under">
-            <div>
-              <h4 className="sub-h">Groups</h4>
-              <ul className="group-list group-grid">
-                {groups.map((g) => (
-                  <li key={g.index}>
-                    <button type="button" className={focusGroup === g.index ? 'on' : ''} aria-pressed={focusGroup === g.index}
-                      onClick={() => { if (focusGroup === g.index) reset(); else { setFocusGroup(g.index); fitTo(nodes.map((n, i) => (n.group === g.index ? i : -1)).filter((i) => i >= 0), 3); } }}>
-                      <span className="group-name"><i className="swatch" style={{ background: groupColor(g.index) }} /> {g.label}</span>
-                      <span className="partner-bar"><span style={{ width: `${(g.ms / maxGroupMs) * 100}%`, background: groupColor(g.index) }} /></span>
-                      <span className="muted small">{g.artists} artists · {fmtHours(g.ms)}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {bridges.length > 0 && (
-                <>
-                  <h4 className="sub-h">Bridges between groups</h4>
-                  <ul className="bridge-list" data-testid="bridges">
-                    {bridges.map(({ n, i }) => (
-                      <li key={n.id}><button type="button" className="link-like" onClick={() => pick(i)}>{n.name}</button>
-                        <span className="muted small"> links {[nodes[i].group, ...linkedGroups(i)].length} groups</span></li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              <p className="muted small">Hover an artist to see who you play them with; click to select. Drag to move, Ctrl/⌘ + scroll or pinch to zoom.</p>
-            </div>
-        </div>
+        {compact ? (
+          <details className="mapx-under mapx-collapse" data-testid="map-groups">
+            <summary>Groups and bridges ({groups.length} groups)</summary>
+            {overview}
+          </details>
+        ) : <div className="mapx-under" data-testid="map-groups">{overview}</div>}
       </div>
     </div>
   );
