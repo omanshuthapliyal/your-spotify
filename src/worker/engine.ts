@@ -532,7 +532,11 @@ export class Engine {
     if (o.sections.genres && this.genre) {
       r.genres = {};
       const branch = plot && o.plotBranch && o.plotBranch !== ROOT_ID && this.tree?.nodes.has(o.plotBranch) ? o.plotBranch : null;
-      if (want('timeline')) r.genres.timeline = this.aggregate({ settings: s, kind: 'branch', branch }, 20, true);
+      if (want('timeline')) {
+        r.genres.timeline = this.aggregate({ settings: s, kind: 'branch', branch }, 20, true);
+        const drill = this.genreDrill(s, branch ?? ROOT_ID, r.genres.timeline);
+        if (Object.keys(drill).length) r.genres.drill = drill;
+      }
       if (branch) r.genres.branch = { id: branch, label: this.tree!.nodes.get(branch)!.label };
       if (want('list')) r.genres.list = rows(this.table({ settings: s, kind: 'genre' }, n).rows);
     }
@@ -552,6 +556,36 @@ export class Engine {
       r.habits?.years.forEach((y) => { if (y.topAlbum) y.topAlbum.art = null; });
     }
     return r;
+  }
+
+  /**
+   * Streams of sub-genres reachable by clicking bands, breadth-first from `start`, biggest
+   * branches first: only branches that have sub-genres and at least 0.4% of the starting
+   * level's listening, at most 60, so the report stays small.
+   */
+  private genreDrill(s: AggregateSettings, start: string, startTimeline: AggregateResult): Record<string, { label: string; timeline: AggregateResult }> {
+    const tree = this.tree;
+    const out: Record<string, { label: string; timeline: AggregateResult }> = {};
+    if (!tree) return out;
+    const minMs = startTimeline.included.ms * 0.004;
+    const seen = new Set([start]);
+    const queue: Array<{ id: string; tl: AggregateResult }> = [{ id: start, tl: startTimeline }];
+    let n = 0;
+    while (queue.length && n < 60) {
+      const { id, tl } = queue.shift()!;
+      const kids = tl.series
+        .filter((x) => x.kind === 'item' && x.ref && x.ref !== id && !seen.has(x.ref) && x.totalMs >= minMs && (tree.nodes.get(x.ref)?.children.length ?? 0) > 0)
+        .sort((a, b) => b.totalMs - a.totalMs);
+      for (const k of kids) {
+        if (n >= 60) break;
+        seen.add(k.ref!);
+        const sub = this.aggregate({ settings: s, kind: 'branch', branch: k.ref! }, 20, true);
+        out[k.ref!] = { label: tree.nodes.get(k.ref!)!.label, timeline: sub };
+        queue.push({ id: k.ref!, tl: sub });
+        n++;
+      }
+    }
+    return out;
   }
 
   /** Headline numbers for the selected range and filter (the same plays every chart counts). */

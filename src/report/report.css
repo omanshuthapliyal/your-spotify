@@ -12,3 +12,6 @@
 .report-plot { max-width: none; padding: 8px; }
 .report-plot .insights, .report-plot .patterns { gap: 12px; }
 .report-plot .report-foot { font-size: 11.5px; }
+.drill-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 4px 0 8px; }
+.drill-bar .crumbs { font-size: 14px; }
+.report .chart-area svg path[data-series] { cursor: pointer; }

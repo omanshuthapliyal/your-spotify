@@ -304,6 +304,12 @@ Then, anywhere in a post:
 {{< listening src="listening/albums-eras.html" plot="albums-eras" >}}
 ```
 
+Genre streams drill down in the embed too: clicking a genre band (or its legend entry) shows its
+sub-genres, and a breadcrumb ("All genres › Rock › Alternative Rock") and Back go up again. The
+file includes the sub-genre streams of branches with at least 0.4% of the listening (up to 60).
+To start an embed at one branch, click **Embed** on Explore → Genres while that branch is open
+on the Sub-genres tab.
+
 Options: `theme="light"` or `theme="dark"` fixes the plot's colours to match your blog (by
 default it follows the reader's device); `height="500"` overrides the starting height (by default
 each plot starts at its typical size, so the page does not jump while it loads).

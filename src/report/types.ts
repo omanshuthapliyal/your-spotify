@@ -67,7 +67,14 @@ export interface ReportData {
   artists?: KindBlock;
   albums?: KindBlock & { whole?: WholeAlbumsResult };
   songs?: KindBlock;
-  genres?: { timeline?: AggregateResult; list?: TableRow[]; branch?: { id: string; label: string } };
+  genres?: {
+    timeline?: AggregateResult;
+    list?: TableRow[];
+    /** The branch the stream starts at (absent = all genres). */
+    branch?: { id: string; label: string };
+    /** Sub-genre streams for drilling down, by genre-tree node id (bands link to them via `ref`). */
+    drill?: Record<string, { label: string; timeline: AggregateResult }>;
+  };
   habits?: Insights;
   patterns?: Partial<Patterns>;
   /** Set for a single-plot report: the plot id (see PLOTS). */

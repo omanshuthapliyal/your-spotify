@@ -108,25 +108,56 @@ function KindPanel({ block, kind, theme, whole, dateFmt, only }: {
   );
 }
 
+/**
+ * Genre streams with drill-down: clicking a band (or its legend entry) that has sub-genres in the
+ * file shows that branch's sub-genres; the breadcrumb and Back go up again.
+ */
 function GenrePanel({ g, theme, only }: { g: NonNullable<ReportData['genres']>; theme: ReturnType<typeof useTheme>; only?: 'list' | 'timeline' }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<string | null>(null);
   const [picked, setView] = useState<'list' | 'timeline'>(g.timeline ? 'timeline' : 'list');
   const view = only ?? picked;
   const table = useMemo(() => (g.list ? { rows: g.list, total: g.list.length, includedMs: g.list.reduce((a, r) => a + r.ms, 0) } : null), [g]);
+  const startId = g.branch?.id ?? 'root';
+  const [path, setPath] = useState<string[]>([startId]);
+  const [note, setNote] = useState<string | null>(null);
+  const cur = path[path.length - 1];
+  const tl = cur === startId ? g.timeline : g.drill?.[cur]?.timeline;
+  const labelOf = (id: string) => (id === startId ? g.branch?.label ?? 'All genres' : g.drill?.[id]?.label ?? id);
+  const drillable = Boolean(g.drill && Object.keys(g.drill).length);
+  const open = (key: string) => {
+    const sr = tl?.series.find((x) => x.key === key);
+    if (!sr || sr.kind !== 'item') return;
+    if (sr.ref && g.drill?.[sr.ref] && sr.ref !== cur) { setPath([...path, sr.ref]); setNote(null); setHover(null); }
+    else setNote(`${sr.label.replace(/ \(itself\)$/, '')} has no sub-genres to show here.`);
+  };
+  const title = cur === startId ? (g.branch ? `${g.branch.label}: sub-genres over time` : 'Genre branches over time') : `${labelOf(cur)}: sub-genres over time`;
   return (
-    <section className="card chart-card">
-      {only ? <h2 className="chart-title">{only === 'list' ? 'Top genres' : g.branch ? `${g.branch.label}: sub-genres over time` : 'Genre branches over time'}</h2> : (
+    <section className="card chart-card" data-testid="genre-panel">
+      {only ? <h2 className="chart-title">{only === 'list' ? 'Top genres' : title}</h2> : (
         <div className="tabs" role="tablist" aria-label="View">
           {(['timeline', 'list'] as const).map((k) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{k === 'list' ? 'Top genres' : 'Genre branches over time'}</button>)}
         </div>
       )}
+      {view === 'timeline' && drillable && (
+        <div className="drill-bar">
+          {path.length > 1 && <button type="button" className="btn ghost btn-small" onClick={() => { setPath(path.slice(0, -1)); setNote(null); }}>← Back</button>}
+          <nav className="crumbs" aria-label="Genre level">
+            {path.map((id, i) => (
+              <span key={id}>{i > 0 && ' › '}{i < path.length - 1
+                ? <button type="button" className="link" onClick={() => { setPath(path.slice(0, i + 1)); setNote(null); }}>{labelOf(id)}</button>
+                : <b aria-current="page">{labelOf(id)}</b>}</span>
+            ))}
+          </nav>
+          <span className="muted small">{note ?? 'Click a band to see its sub-genres.'}</span>
+        </div>
+      )}
       <div ref={ref} className="chart-area">
         {view === 'list' && table ? <Leaderboard kind="genre" table={table} minSeconds={30} by="time" onOpen={() => undefined} />
-          : g.timeline ? <StackedArea result={g.timeline} metric="hours" shape="smooth" otherMode="below" width={width} theme={theme} highlight={hover} onSelect={() => undefined} />
+          : tl ? <StackedArea key={cur} result={tl} metric="hours" shape="smooth" otherMode="below" width={width} theme={theme} highlight={hover} onSelect={(key) => open(key)} />
           : <p className="muted">Not included in this report.</p>}
       </div>
-      {view === 'timeline' && g.timeline && <Legend result={g.timeline} metric="hours" theme={theme} pinned={null} otherMode="below" onHover={setHover} onTogglePin={() => undefined} />}
+      {view === 'timeline' && tl && <Legend result={tl} metric="hours" theme={theme} pinned={null} otherMode="below" onHover={setHover} onTogglePin={(key) => open(key)} />}
     </section>
   );
 }

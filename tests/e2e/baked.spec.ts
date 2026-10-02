@@ -36,7 +36,37 @@ test('genre streams are embeddable: top level from Explore > Genres, and any bra
   await explore.getByRole('button', { name: 'Embed' }).click();
   await expect(page.getByLabel('Plot to export')).toHaveValue('genres-timeline');
   await expect(page.getByTestId('share-branch')).toHaveCount(0);
+  const dlTop = page.waitForEvent('download');
+  await page.getByTestId('create-report').click();
+  const top = await dlTop;
+  const { copyFileSync: cp0, mkdirSync: mk0 } = await import('node:fs');
+  const { resolve: res0 } = await import('node:path');
+  mk0('screenshots', { recursive: true });
+  cp0(await top.path(), 'screenshots/sample-genres-top.html');
   await page.getByRole('button', { name: 'Close' }).click();
+
+  // The embedded top level drills down: click a band (or its legend entry) for its sub-genres.
+  const v = await context.newPage();
+  const errors: string[] = [];
+  v.on('pageerror', (e) => errors.push(e.message));
+  await v.goto(`file://${res0('screenshots/sample-genres-top.html')}#plot=genres-timeline&embed`);
+  await expect(v.getByRole('heading', { name: 'Genre branches over time' })).toBeVisible();
+  await expect(v.getByRole('navigation', { name: 'Genre level' })).toHaveText('All genres');
+  await v.locator('.legend').getByRole('button', { name: /^Rock\b/ }).click();
+  await expect(v.getByRole('heading', { name: 'Rock: sub-genres over time' })).toBeVisible();
+  await expect(v.getByRole('navigation', { name: 'Genre level' })).toHaveText('All genres › Rock');
+  await expect(v.locator('path[data-series="Indie Rock"]')).toHaveCount(1);
+  await v.getByRole('button', { name: '← Back' }).click();
+  await expect(v.getByRole('heading', { name: 'Genre branches over time' })).toBeVisible();
+  // Clicking the band itself (at its on-chart label) drills down too.
+  const lbl = (await v.locator('svg text', { hasText: /^Rock$/ }).first().boundingBox())!;
+  const hit = (await v.getByTestId('stack-hit').boundingBox())!;
+  await v.getByTestId('stack-hit').click({ position: { x: lbl.x + lbl.width / 2 - hit.x, y: lbl.y + lbl.height / 2 - hit.y } });
+  await expect(v.getByRole('heading', { name: 'Rock: sub-genres over time' })).toBeVisible();
+  await v.getByRole('navigation', { name: 'Genre level' }).getByRole('button', { name: 'All genres' }).click();
+  await expect(v.getByRole('heading', { name: 'Genre branches over time' })).toBeVisible();
+  expect(errors).toEqual([]);
+  await v.close();
 
   // Inside a branch: its sub-genres over time.
   await page.locator('[data-node="g:rock"]').click();
