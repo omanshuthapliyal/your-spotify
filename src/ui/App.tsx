@@ -83,7 +83,9 @@ export function App() {
   const [genreError, setGenreError] = useState<string | null>(null);
   const [enrichment, setEnrichment] = useState<EnrichmentSummary | null>(null);
   const timeZone = useMemo(() => browserTimeZone(), []);
-  const [sharing, setSharing] = useState(false);
+  /** Share dialog: closed (null), or open with an optional plot preselected. */
+  const [sharing, setSharing] = useState<{ plot: string | null } | null>(null);
+  const embed = useCallback((plot: string) => setSharing({ plot }), []);
   const coverCount = bakedGenres?.art ? Object.values(bakedGenres.art).filter(Boolean).length : 0;
 
   useEffect(() => {
@@ -230,7 +232,7 @@ export function App() {
           <p className="muted small">Your Spotify history, analysed in this tab only</p>
         </div>
         {ready && <SearchBox client={client} version={version} onPick={onSearchPick} />}
-        {ready && <button type="button" className="btn primary share-btn" onClick={() => setSharing(true)}>Share</button>}
+        {ready && <button type="button" className="btn primary share-btn" onClick={() => setSharing({ plot: null })}>Share</button>}
         <details className="menu settings">
           <summary className="btn ghost" aria-label="Settings">Settings</summary>
           <div className="menu-panel menu-right settings-panel">
@@ -299,7 +301,7 @@ export function App() {
                 onSection={(s) => go('explore', s === 'tracks' ? 'songs' : s)} />
               <ExploreView client={client} theme={theme} settings={settings} kind={genreSummary ? 'branch' : 'artist'} views={['timeline', 'eras']} view={views.story}
                 onView={(v) => setViews((s) => ({ ...s, story: v }))} opts={opts} onOpts={setOpts} onOpenEntity={openEntity} onOpenBranch={openBranch}
-                exportNotes={exportNotes} version={version} timeZone={timeZone} testId="overview-explore" />
+                exportNotes={exportNotes} version={version} timeZone={timeZone} testId="overview-explore" onEmbed={embed} />
             </>
           )}
 
@@ -307,7 +309,7 @@ export function App() {
             <>
               <ExploreView key={lib} client={client} theme={theme} settings={settings} kind={LIB_KIND[lib]} views={LIB_VIEWS[lib]} listLabel={LIST_LABEL[lib]}
                 view={views[lib]} onView={(v) => setViews((s) => ({ ...s, [lib]: v }))} opts={opts} onOpts={setOpts}
-                onOpenEntity={openEntity} onOpenBranch={openBranch} exportNotes={exportNotes} version={version} timeZone={timeZone} testId={`${lib}-explore`} />
+                onOpenEntity={openEntity} onOpenBranch={openBranch} exportNotes={exportNotes} version={version} timeZone={timeZone} testId={`${lib}-explore`} onEmbed={embed} />
               {lib === 'albums' && <DecadesCard client={client} theme={theme} settings={settings} scope={null} available={yearsAvailable} version={version} />}
             </>
           )}
@@ -330,7 +332,7 @@ export function App() {
           )}
 
           {area === 'patterns' && (
-            <PatternsView client={client} theme={theme} settings={settings} version={version} onOpenArtist={(id) => openEntity('artist', id)} />
+            <PatternsView client={client} theme={theme} settings={settings} version={version} onOpenArtist={(id) => openEntity('artist', id)} onEmbed={embed} />
           )}
 
           {area === 'data' && (
@@ -370,7 +372,7 @@ export function App() {
       )}
 
       {sharing && ready && (
-        <ShareDialog client={client} settings={settings} timeZone={timeZone} hasGenres={Boolean(genreSummary)} onClose={() => setSharing(false)} />
+        <ShareDialog client={client} settings={settings} timeZone={timeZone} hasGenres={Boolean(genreSummary)} initialPlot={sharing.plot} onClose={() => setSharing(null)} />
       )}
       {entity && ready && (
         <EntityPanel client={client} theme={theme} settings={settings} entity={entity} version={version} timeZone={timeZone}

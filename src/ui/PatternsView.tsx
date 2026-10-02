@@ -208,31 +208,47 @@ function Lifecycles({ life, theme, onOpenArtist }: { life: Patterns['life']; the
 }
 
 /** Pure display of the pattern models (also used by the share report). */
-export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSize, stale = false }: {
-  p: Patterns; theme: Theme; onOpenArtist?: (id: number) => void; k?: number; onK?: (k: number) => void;
+export type PatternPlot = 'map' | 'eras' | 'tastes' | 'life';
+
+/** Section heading with an optional "Embed" button (opens Share with this plot selected). */
+function SecHead({ title, plot, onEmbed }: { title: string; plot: string; onEmbed?: (plot: string) => void }) {
+  return (
+    <div className="sec-head">
+      <h2 className="chart-title">{title}</h2>
+      {onEmbed && <button type="button" className="btn ghost btn-small" onClick={() => onEmbed(plot)} aria-label={`Embed “${title}” in a blog post`}>Embed</button>}
+    </div>
+  );
+}
+
+export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSize, stale = false, only, onEmbed }: {
+  p: Partial<Patterns>; theme: Theme; onOpenArtist?: (id: number) => void; k?: number; onK?: (k: number) => void;
   mapSize?: number; onMapSize?: (n: number) => void; stale?: boolean;
+  /** Render one section only (single-plot embeds). */
+  only?: PatternPlot;
+  onEmbed?: (plot: string) => void;
 }) {
+  const show = (x: PatternPlot) => !only || only === x;
   const [era, setEra] = useState<number | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
   const [tref, twidth] = useWidth<HTMLDivElement>();
   const e = p.eras;
   const t = p.tastes;
-  const shownEras = era === null ? e.eras : [e.eras[era]];
+  const shownEras = !e ? [] : era === null ? e.eras : [e.eras[era]];
   return (
     <div className={`insights patterns${stale ? ' stale' : ''}`} data-testid="patterns">
-      <section className="card map-hero" id="p-map" data-testid="map-card">
-        <h2 className="chart-title">Who you play together</h2>
+      {show('map') && p.map && <section className="card map-hero" id="p-map" data-testid="map-card">
+        <SecHead title="Who you play together" plot="map" onEmbed={onEmbed} />
         <p className="muted small chart-sub">Your top {p.map.nodes.length} artists, linked when you play them in the same listening sessions. Colours are groups of artists that keep showing up together; outlines mark each group. Bigger circles = more listening.</p>
         {p.map.nodes.length > 2 ? <ColistenExplorer map={p.map} theme={theme} onOpenArtist={onOpenArtist} mapSize={mapSize} onMapSize={onMapSize} /> : <p className="muted">Not enough sessions to map.</p>}
         <p className="muted small">
           {fmtInt(p.map.sessions)} sessions (no gap over 30 minutes). Link strength: sessions with both artists relative to each artist's sessions (Ochiai); each artist links to its 5 strongest partners.
           Groups: Louvain communities; group stability {p.map.stability.toFixed(2)} (adjusted Rand index across runs, 1 = identical). Bridges link into several groups. Groups are drawn as islands, related groups side by side: only links and groups carry meaning, not exact distances.
         </p>
-      </section>
+      </section>}
 
-      <section className="card" id="p-eras" data-testid="eras">
-        <h2 className="chart-title">Your listening eras</h2>
+      {show('eras') && e && <section className="card" id="p-eras" data-testid="eras">
+        <SecHead title="Your listening eras" plot="eras" onEmbed={onEmbed} />
         <p className="muted small chart-sub">
           Stretches of time with a distinct artist mix, found automatically. A boundary is kept only if it beats what the same method finds in your months shuffled at random.
         </p>
@@ -244,9 +260,9 @@ export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSiz
             <p className="muted small">{e.eras.length} era{e.eras.length === 1 ? '' : 's'} (at most 10, each 3+ months) from {fmtInt(e.fittedMonths)} months{e.sparseMonths ? `; ${e.sparseMonths} sparse months join the era around them` : ''}. They account for {pct(e.explained)} of the month-to-month variation in your artist mix.</p>
           </>
         ) : <p className="muted">Not enough months with listening to find eras.</p>}
-      </section>
+      </section>}
 
-      <section className="card" id="p-tastes" data-testid="tastes">
+      {show('tastes') && t !== undefined && <section className="card" id="p-tastes" data-testid="tastes">
         <header className="chart-head">
           <div>
             <h2 className="chart-title">Your tastes over time</h2>
@@ -258,6 +274,7 @@ export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSiz
                 {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n}</option>)}
               </select></label>
           )}
+          {onEmbed && <button type="button" className="btn ghost btn-small" onClick={() => onEmbed('tastes')} aria-label="Embed “Your tastes over time” in a blog post">Embed</button>}
         </header>
         {t ? (
           <>
@@ -272,25 +289,25 @@ export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSiz
             </p>
           </>
         ) : <p className="muted">Not enough listening to learn tastes.</p>}
-      </section>
+      </section>}
 
-      <section className="card" id="p-life" data-testid="life-card">
-        <h2 className="chart-title">How artists come and go</h2>
+      {show('life') && p.life && <section className="card" id="p-life" data-testid="life-card">
+        <SecHead title="How artists come and go" plot="life" onEmbed={onEmbed} />
         <p className="muted small chart-sub">The shape of your history with each artist, by simple rules you can check, and how long newly found artists stay in rotation</p>
         <Lifecycles life={p.life} theme={theme} onOpenArtist={onOpenArtist} />
-      </section>
+      </section>}
     </div>
   );
 }
 
-export function PatternsView({ client, theme, settings, version, onOpenArtist }: {
-  client: WorkerClient; theme: Theme; settings: AggregateSettings; version: number; onOpenArtist: (id: number) => void;
+export function PatternsView({ client, theme, settings, version, onOpenArtist, onEmbed }: {
+  client: WorkerClient; theme: Theme; settings: AggregateSettings; version: number; onOpenArtist: (id: number) => void; onEmbed?: (plot: string) => void;
 }) {
   const [k, setK] = useState(6);
   const [mapSize, setMapSize] = useState(150);
   const { data, stale } = useWorkerQuery<Patterns>(client, () => [{ type: 'patterns', settings, k, mapSize }], [client, settings, k, mapSize, version]);
   if (!data) return <section className="card"><p className="muted">Finding your eras, tastes and patterns…</p></section>;
-  return <PatternsBody p={data} theme={theme} onOpenArtist={onOpenArtist} k={k} onK={setK} mapSize={mapSize} onMapSize={setMapSize} stale={stale} />;
+  return <PatternsBody p={data} theme={theme} onOpenArtist={onOpenArtist} k={k} onK={setK} mapSize={mapSize} onMapSize={setMapSize} stale={stale} onEmbed={onEmbed} />;
 }
 
 /** Compact era strip for the Story page. */

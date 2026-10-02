@@ -539,3 +539,9 @@ ul.bridge-list { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; }
 .partner-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; }
 .partner-list li .partner-bar { grid-column: 1 / -1; }
 .partner-list .link-like { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Embedding ---- */
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.btn.btn-small { min-height: 28px; padding: 3px 10px; font-size: 12.5px; }
+.share-mode { margin: 4px 0 12px; }
+.share-plot select { min-width: min(100%, 360px); }

@@ -68,8 +68,9 @@ export function reportHtml(data: ReportData, viewer: { js: string; css: string }
 `;
 }
 
-export const EMBED_SNIPPET = (file: string, section: string) => `<iframe src="${file}#${section}&embed" title="My listening report" loading="lazy" allowfullscreen
-  style="width:100%;border:0;min-height:640px"></iframe>
+/** Embed code for a report section (`story`, `albums`, ...) or one plot (`plot=map`). */
+export const EMBED_SNIPPET = (file: string, target: string) => `<iframe src="${file}#${target}&embed" title="My listening report" loading="lazy" allowfullscreen
+  style="width:100%;border:0;min-height:${target.startsWith('plot=') ? 420 : 640}px"></iframe>
 <script>
   // Optional: let the report set its own height.
   addEventListener('message', (e) => {
@@ -77,3 +78,7 @@ export const EMBED_SNIPPET = (file: string, section: string) => `<iframe src="${
     for (const f of document.querySelectorAll('iframe')) if (f.contentWindow === e.source) f.style.height = e.data.height + 'px';
   });
 </script>`;
+
+/** Hugo shortcode call (docs/hugo-shortcode.html) for a file placed in static/listening/. */
+export const HUGO_SNIPPET = (file: string, plot: string | null) =>
+  plot ? `{{< listening src="listening/${file}" plot="${plot}" >}}` : `{{< listening src="listening/${file}" section="story" >}}`;

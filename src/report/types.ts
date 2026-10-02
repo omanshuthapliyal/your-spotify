@@ -28,6 +28,8 @@ export interface ReportOptions {
   };
   covers: boolean;
   listSize: number;
+  /** Export one plot only (an id from PLOTS); the file then holds just that plot's data. */
+  plot?: string | null;
 }
 
 export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
@@ -39,11 +41,12 @@ export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
   listSize: 25,
 };
 
+/** One library kind. In a single-plot report only the part that plot needs is present. */
 export interface KindBlock {
-  list: TableRow[];
-  timeline: AggregateResult;
-  eras: AggregateResult;
-  ranks: { agg: AggregateResult; ranks: RankResult };
+  list?: TableRow[];
+  timeline?: AggregateResult;
+  eras?: AggregateResult;
+  ranks?: { agg: AggregateResult; ranks: RankResult };
 }
 
 export interface ReportData {
@@ -60,10 +63,12 @@ export interface ReportData {
   story?: { summary: Summary; insights: Insights };
   top?: { artist: TableRow[]; album: TableRow[]; track: TableRow[]; genre?: TableRow[] };
   artists?: KindBlock;
-  albums?: KindBlock & { whole: WholeAlbumsResult };
+  albums?: KindBlock & { whole?: WholeAlbumsResult };
   songs?: KindBlock;
-  genres?: { timeline: AggregateResult; list: TableRow[] };
+  genres?: { timeline?: AggregateResult; list?: TableRow[] };
   habits?: Insights;
-  patterns?: Patterns;
+  patterns?: Partial<Patterns>;
+  /** Set for a single-plot report: the plot id (see PLOTS). */
+  plot?: string;
   notes: string[];
 }

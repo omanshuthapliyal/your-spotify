@@ -118,9 +118,12 @@ export function InsightsView({ client, theme, settings, timeZone, version, onOpe
  * Pure display of insights (also used by the shareable report). `routine: false` leaves out the
  * parts that reveal a daily routine: the calendar, time of day, sessions and day-level obsessions.
  */
-export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, routine = true, dayFmt = fmtDay }: {
+export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, routine = true, dayFmt = fmtDay, only }: {
   ins: Insights; theme: Theme; onOpenArtist?: (id: number) => void; clock?: ReactNode; stale?: boolean; routine?: boolean; dayFmt?: (day: number) => string;
+  /** Render only this section (its id, e.g. 'h-discovery'), for single-plot embeds. */
+  only?: string;
 }) {
+  const show = (id: string) => !only || only === id;
   const open = (id: number) => (onOpenArtist ? () => onOpenArtist(id) : undefined);
   const ys = ins.years;
   const o = ins.obsessions;
@@ -134,17 +137,17 @@ export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, r
   const hourLabel = (h: number) => `${String(h).padStart(2, '0')}:00`;
   return (
     <div className={`insights${stale ? ' stale' : ''}`} data-testid="insights">
-      {routine && ins.days.length > 0 && (
+      {show('h-calendar') && routine && ins.days.length > 0 && (
         <section className="card" id="h-calendar">
           <h2 className="chart-title">Every day you listened</h2>
           <p className="muted small chart-sub">Daily listening, darker = more · {ins.timeZone === 'UTC' ? 'days in UTC' : `days in ${ins.timeZone}`} · music on {fmtInt(ins.daysWithMusic)} of {fmtInt(ins.totalDays)} days</p>
           <Calendar days={ins.days} theme={theme} />
         </section>
       )}
-      {routine && clock && <div id="h-clock">{clock}</div>}
+      {routine && clock && show('h-clock') && <div id="h-clock">{clock}</div>}
 
       <div className="insight-grid">
-        <section className="card insight-wide" data-testid="discovery-card" id="h-discovery">
+        {show('h-discovery') && <section className="card insight-wide" data-testid="discovery-card" id="h-discovery">
           <h2 className="chart-title">Discovering new artists</h2>
           <p className="muted small chart-sub">Artists you played for the first time ever, per month · the tallest month is highlighted</p>
           <MonthBars months={ins.discoveryMonthly} from={fromMonth} to={toMonth} theme={theme} label="New artists" fmt={(v) => fmtInt(v)} />
@@ -166,14 +169,14 @@ export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, r
               </ul>
             </div>
           </div>
-        </section>
-        <section className="card" id="h-variety">
+        </section>}
+        {show('h-variety') && <section className="card" id="h-variety">
           <h2 className="chart-title">How varied your listening was</h2>
           <p className="muted small chart-sub">“Effective artists”: you listened as if to this many artists equally (higher = more varied)</p>
           <YearBars rows={ys.map((y) => ({ year: y.year, v: y.effectiveArtists }))} theme={theme} fmt={(v) => fmtInt(Math.round(v))} label="Effective artists" />
           <p className="muted small">Top 10 artists’ share of each year: {ys.map((y) => `${y.year} ${pct(y.top10Share)}`).join(' · ')}</p>
-        </section>
-        <section className="card" id="h-skips">
+        </section>}
+        {show('h-skips') && <section className="card" id="h-skips">
           <h2 className="chart-title">Skipping</h2>
           <p className="muted small chart-sub">Share of all plays (including very short ones) that were skipped</p>
           <YearBars rows={ys.map((y) => ({ year: y.year, v: y.skipRate }))} theme={theme} fmt={pct} label="Skip rate" />
@@ -191,13 +194,13 @@ export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, r
               ))}</ol>
             </>
           )}
-        </section>
-        <section className="card" id="h-shuffle">
+        </section>}
+        {show('h-shuffle') && <section className="card" id="h-shuffle">
           <h2 className="chart-title">Shuffle</h2>
           <p className="muted small chart-sub">Share of plays with shuffle on</p>
           <YearBars rows={ys.map((y) => ({ year: y.year, v: y.shuffleRate }))} theme={theme} fmt={pct} label="Shuffle share" />
-        </section>
-        {ys.some((y) => y.medianMusicAge !== null) && (
+        </section>}
+        {show('h-age') && ys.some((y) => y.medianMusicAge !== null) && (
           <section className="card" id="h-age">
             <h2 className="chart-title">How old is the music you play</h2>
             <p className="muted small chart-sub">Median years between an album’s release and when you played it (albums with a known year)</p>
@@ -205,7 +208,7 @@ export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, r
             <p className="muted small">New releases (released that year or the year before): {ys.filter((y) => y.newMusicShare !== null).map((y) => `${y.year} ${pct(y.newMusicShare!)}`).join(' · ')}</p>
           </section>
         )}
-        {routine && <section className="card" id="h-sessions">
+        {routine && show('h-sessions') && <section className="card" id="h-sessions">
           <h2 className="chart-title">Sessions</h2>
           <p className="muted small chart-sub">A session ends after 30 minutes without music</p>
           <div className="istats">
@@ -218,7 +221,7 @@ export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, r
           <h4 className="sub-h">When sessions start ({ins.timeZone})</h4>
           <ColumnBars items={ins.sessionStartHours.map((c, h) => ({ key: String(h), label: h % 3 === 0 ? String(h).padStart(2, '0') : '', value: c, tip: `${hourLabel(h)}–${hourLabel((h + 1) % 24)}` }))} theme={theme} fmt={(v) => `${fmtInt(v)} sessions`} label="Sessions started" height={90} highlightMax />
         </section>}
-        {routine && <section className="card" id="h-obsessions">
+        {routine && show('h-obsessions') && <section className="card" id="h-obsessions">
           <h2 className="chart-title">Obsessions</h2>
           <div className="istats">
             {o.longestStreak && <Stat label="Longest artist streak" value={`${o.longestStreak.days} days`} sub={`${o.longestStreak.artist}, from ${dayFmt(o.longestStreak.startDay)}`} />}
@@ -233,7 +236,7 @@ export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, r
             </>
           )}
         </section>}
-        {ins.comebacks.length > 0 && (
+        {show('h-comebacks') && ins.comebacks.length > 0 && (
           <section className="card insight-wide" data-testid="comebacks-card" id="h-comebacks">
             <h2 className="chart-title">Comebacks</h2>
             <p className="muted small chart-sub">Artists you returned to after a year or more away · each cell is a month, darker = more listening; the empty stretch is the gap</p>
@@ -241,12 +244,12 @@ export function InsightsBody({ ins, theme, onOpenArtist, clock, stale = false, r
               rows={ins.comebacks.slice(0, 8).map((c) => ({ key: String(c.id), label: `${c.name} · ${(c.gapDays / 365).toFixed(1)} y`, cells: new Map(ins.artistMonths[c.id] ?? []), onClick: open(c.id) }))} />
           </section>
         )}
-        <section className="card insight-wide" data-testid="loyal-card" id="h-loyal">
+        {show('h-loyal') && <section className="card insight-wide" data-testid="loyal-card" id="h-loyal">
           <h2 className="chart-title">Most loyal</h2>
           <p className="muted small chart-sub">Artists you played in the most different years · darker = more hours that year</p>
           <HeatRows testId="loyal-rows" unit="year" theme={theme} columns={yearCols}
             rows={ins.loyal.slice(0, 10).map((l) => ({ key: String(l.id), label: `${l.name} · ${l.years} y`, cells: new Map(ins.artistYears[l.id] ?? []), onClick: open(l.id) }))} />
-        </section>
+        </section>}
       </div>
     </div>
   );

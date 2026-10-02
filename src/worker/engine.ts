@@ -24,6 +24,7 @@ import { offsetFn } from '../core/tz';
 import { computeCorePatterns, computeTastes, DEFAULT_TASTES, MAP_ARTISTS, type LifeKind, type Neighbour, type Patterns, type PatternState, type TastesResult } from '../core/patterns';
 import type { PatternInput } from '../core/patterns/monthly';
 import type { KindBlock, ReportData, ReportOptions } from '../report/types';
+import { plotById } from '../report/plots';
 
 export type Kind = 'artist' | 'album' | 'track' | 'genre' | 'branch';
 
@@ -444,16 +445,25 @@ export class Engine {
   }
 
   /** Data for the shareable report: aggregates only, sanitized per the chosen options. */
-  reportData(settings: AggregateSettings, o: ReportOptions, timeZone: string | null): ReportData {
+  reportData(settings: AggregateSettings, o0: ReportOptions, timeZone: string | null): ReportData {
+    // A single-plot report turns on just that plot's section and keeps only the part it needs.
+    const plot = plotById(o0.plot);
+    const o: ReportOptions = plot
+      ? { ...o0, sections: { story: false, artists: false, albums: false, songs: false, genres: false, habits: false, patterns: false, [plot.section]: true, routine: Boolean(plot.routine) } }
+      : o0;
+    const want = (part: string) => !plot || plot.part === part;
     const s = { ...settings, rankBy: 'time' as const };
     const n = Math.max(5, Math.min(100, o.listSize));
     const block = (kind: 'artist' | 'album' | 'track'): KindBlock => {
-      const list = this.table({ settings: s, kind }, n).rows;
-      const timeline = this.aggregate({ settings: s, kind }, 20, true);
-      const eras = this.aggregate({ settings: { ...s, topN: 20 }, kind }, 30, false);
-      const rq = { settings: { ...s, granularity: 'year' as const }, kind };
-      const ragg = this.aggregate(rq, 20, true);
-      return { list, timeline, eras, ranks: { agg: ragg, ranks: this.ranks(rq) } };
+      const b: KindBlock = {};
+      if (want('list')) b.list = this.table({ settings: s, kind }, n).rows;
+      if (want('timeline')) b.timeline = this.aggregate({ settings: s, kind }, 20, true);
+      if (want('eras')) b.eras = this.aggregate({ settings: { ...s, topN: 20 }, kind }, 30, false);
+      if (want('ranks')) {
+        const rq = { settings: { ...s, granularity: 'year' as const }, kind };
+        b.ranks = { agg: this.aggregate(rq, 20, true), ranks: this.ranks(rq) };
+      }
+      return b;
     };
     const MONTH = (t: number) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1); };
     const DAYMS = 86_400_000;
@@ -509,23 +519,32 @@ export class Engine {
         ...(this.genre ? { genre: rows(this.table({ settings: s, kind: 'genre' }, 5).rows) } : {}),
       };
     }
-    if (o.sections.artists) { const b = block('artist'); r.artists = { ...b, list: rows(b.list) }; }
+    const withRows = (b: KindBlock): KindBlock => (b.list ? { ...b, list: rows(b.list) } : b);
+    if (o.sections.artists) r.artists = withRows(block('artist'));
     if (o.sections.albums) {
-      const b = block('album');
-      const w = this.wholeAlbums(settings);
-      r.albums = { ...b, list: rows(b.list), whole: { ...w, rows: w.rows.slice(0, n).map((x) => ({ ...x, firstWhole: rt(x.firstWhole), lastWhole: rt(x.lastWhole) })) } };
+      r.albums = withRows(block('album'));
+      if (want('whole')) {
+        const w = this.wholeAlbums(settings);
+        r.albums.whole = { ...w, rows: w.rows.slice(0, n).map((x) => ({ ...x, firstWhole: rt(x.firstWhole), lastWhole: rt(x.lastWhole) })) };
+      }
     }
-    if (o.sections.songs) { const b = block('track'); r.songs = { ...b, list: rows(b.list) }; }
+    if (o.sections.songs) r.songs = withRows(block('track'));
     if (o.sections.genres && this.genre) {
-      r.genres = { timeline: this.aggregate({ settings: s, kind: 'branch' }, 20, true), list: rows(this.table({ settings: s, kind: 'genre' }, n).rows) };
+      r.genres = {};
+      if (want('timeline')) r.genres.timeline = this.aggregate({ settings: s, kind: 'branch' }, 20, true);
+      if (want('list')) r.genres.list = rows(this.table({ settings: s, kind: 'genre' }, n).rows);
     }
     if (o.sections.habits || o.sections.routine) r.habits = ins;
     // Pattern results are month-level already (no days or times), so precision needs no rounding.
-    if (o.sections.patterns) r.patterns = this.patterns(settings);
+    if (o.sections.patterns) {
+      const p = this.patterns(settings, DEFAULT_TASTES, want('tastes'));
+      r.patterns = plot ? { [plot.part]: p[plot.part as keyof typeof p] } : p;
+    }
+    if (plot) r.plot = plot.id;
     if (!o.covers) {
       const strip = (x: { art?: string | null }) => { x.art = null; };
-      for (const b of [r.artists, r.albums, r.songs]) b?.list.forEach(strip);
-      r.albums?.whole.rows.forEach(strip);
+      for (const b of [r.artists, r.albums, r.songs]) b?.list?.forEach(strip);
+      r.albums?.whole?.rows.forEach(strip);
       if (r.top) for (const l of Object.values(r.top)) l?.forEach(strip);
       r.story?.insights.years.forEach((y) => { if (y.topAlbum) y.topAlbum.art = null; });
       r.habits?.years.forEach((y) => { if (y.topAlbum) y.topAlbum.art = null; });

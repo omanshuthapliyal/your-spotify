@@ -9,3 +9,6 @@
 .report.embed { padding-top: 8px; }
 .year-pick:disabled { cursor: default; color: inherit; }
 .report .top-grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.report-plot { max-width: none; padding: 8px; }
+.report-plot .insights, .report-plot .patterns { gap: 12px; }
+.report-plot .report-foot { font-size: 11.5px; }

@@ -1,3 +1,4 @@
+import { plotById } from '../report/plots';
 import { useMemo, useRef, useState } from 'react';
 import { METRIC_LABEL, type AggregateResult, type AggregateSettings } from '../core/aggregate';
 import type { RankResult } from '../core/ranks';
@@ -67,7 +68,11 @@ interface Props {
   /** Browser timezone, used by the listening clock by default. */
   timeZone: string;
   testId?: string;
+  /** Open Share with this chart selected as a single embeddable plot. */
+  onEmbed?: (plotId: string) => void;
 }
+
+const PLOT_SECTION: Partial<Record<Kind, string>> = { artist: 'artists', album: 'albums', track: 'songs', branch: 'genres' };
 
 export function ExploreView(p: Props) {
   const { client, theme, settings, kind, scope, branch, view, opts } = p;
@@ -205,6 +210,8 @@ export function ExploreView(p: Props) {
   const rankResult = result ? { ...result, series: result.series.filter((s) => s.kind === 'item') } : null;
   const hasOptions = view !== 'list' && view !== 'whole';
 
+  // Only unscoped charts can be embedded on their own (a single-plot file has no branch scope).
+  const embedId = !p.scope && (!p.branch || p.branch === 'root') && PLOT_SECTION[p.kind] && plotById(`${PLOT_SECTION[p.kind]}-${view}`) ? `${PLOT_SECTION[p.kind]}-${view}` : null;
   return (
     <section className="card chart-card" data-testid={p.testId}>
       {p.views.length > 1 && (
@@ -278,6 +285,9 @@ export function ExploreView(p: Props) {
                 )}
               </div>
             </details>
+          )}
+          {p.onEmbed && embedId && (
+            <button type="button" className="btn ghost" onClick={() => p.onEmbed!(embedId)} title="Export this chart on its own, interactive, for a blog post">Embed</button>
           )}
           {hasOptions && (
             <details className="menu">

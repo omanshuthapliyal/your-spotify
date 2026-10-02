@@ -245,20 +245,33 @@ top artist names and covers, so **don't publish that `dist/`**.
 
 Anything in the file is readable by anyone who opens it, including numbers that aren't on screen.
 
-### Embedding in a blog
+### Embedding plots in a blog
 
-`report.html#albums&embed` shows one section without the header. The sections are `story`,
-`artists`, `albums`, `songs`, `genres`, `habits` and `patterns`. The report posts its height to the parent
-page, so the iframe can fit it. The Share dialog gives you a ready-made snippet.
+You can embed **single interactive plots** (not the whole report) in a post:
 
-For **Hugo**, put the report in `static/listening/report.html` and add
-`layouts/shortcodes/listening.html` (a copy is in [`docs/hugo-shortcode.html`](docs/hugo-shortcode.html)):
+1. In the app, click **Embed** on a chart (on every Patterns section and on Explore charts), or
+   open **Share** and choose **One plot, for embedding**, then pick a plot. Plots include the
+   co-listening map, eras, tastes, lifecycles, top lists, timelines, eras and rankings for
+   artists, albums and songs, whole albums, genres, and each Habits chart.
+2. Click **Download plot**. You get a small file such as `map.html` with only that plot's
+   data, still fully interactive (hover, zoom, selection, view switches).
+3. Put the file on your site and embed it with the snippet the dialog shows (HTML or Hugo).
+
+The report also posts its height to the parent page, so the iframe fits the plot. In a full
+report, `report.html#albums&embed` shows one section and `report.html#plot=albums-eras&embed`
+shows one plot.
+
+For **Hugo**, put the files in `static/listening/` and copy
+[`docs/hugo-shortcode.html`](docs/hugo-shortcode.html) to `layouts/shortcodes/listening.html`:
 
 ```html
+{{/* Embed a listening report. section="albums" shows one report section; plot="map" one plot. */}}
 {{ $id := printf "lr-%d" .Ordinal }}
-<iframe id="{{ $id }}" src="{{ .Get "src" | relURL }}#{{ .Get "section" | default "story" }}&embed"
+{{ $target := .Get "section" | default "story" }}
+{{ with .Get "plot" }}{{ $target = printf "plot=%s" . }}{{ end }}
+<iframe id="{{ $id }}" src="{{ printf "%s#%s&embed" (.Get "src" | relURL) $target | safeURL }}"
         title="{{ .Get "title" | default "Listening report" }}" loading="lazy" allowfullscreen
-        style="width:100%;border:0;min-height:640px"></iframe>
+        style="width:100%;border:0;min-height:{{ .Get "height" | default "420" }}px"></iframe>
 <script>
 (function () {
   var f = document.getElementById("{{ $id }}");
@@ -270,7 +283,20 @@ For **Hugo**, put the report in `static/listening/report.html` and add
 </script>
 ```
 
-Then, in a post: `{{< listening src="listening/report.html" section="albums" >}}`
+Then, anywhere in a post:
+
+```markdown
+{{< listening src="listening/map.html" plot="map" title="Who I play together" >}}
+
+{{< listening src="listening/albums-eras.html" plot="albums-eras" >}}
+```
+
+Optional `height="500"` sets the height before the plot has loaded. Plot ids: `map`, `eras`,
+`tastes`, `life`, `artists-list`, `artists-eras`, `artists-timeline`, `artists-ranks` (and the
+same for `albums-` and `songs-`), `albums-whole`, `genres-timeline`, `genres-list`, `story`,
+`habits-discovery`, `habits-variety`, `habits-skips`, `habits-shuffle`, `habits-age`,
+`habits-comebacks`, `habits-loyal`, and the daily-routine ones `habits-calendar`,
+`habits-sessions`, `habits-obsessions`.
 
 ## Development
 

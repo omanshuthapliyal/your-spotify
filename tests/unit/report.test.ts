@@ -29,7 +29,7 @@ describe('shareable report data', () => {
     expect(r.patterns).toBeUndefined();
     expect(r.albums).toBeUndefined();
     expect(r.habits).toBeUndefined();
-    expect(r.songs!.list.length).toBeGreaterThan(0);
+    expect(r.songs!.list!.length).toBeGreaterThan(0);
     expect(r.story!.summary.plays).toBe(2429);
   });
 
@@ -48,7 +48,7 @@ describe('shareable report data', () => {
 
   it('month precision rounds every date in the data, and drops the daily calendar', async () => {
     const r = await report({ sections: { ...DEFAULT_REPORT_OPTIONS.sections, routine: true } });
-    for (const row of [...r.artists!.list, ...r.songs!.list, ...r.albums!.list]) {
+    for (const row of [...r.artists!.list!, ...r.songs!.list!, ...r.albums!.list!]) {
       expect(isMonthStart(row.first)).toBe(true);
       expect(isMonthStart(row.last)).toBe(true);
     }
@@ -61,8 +61,33 @@ describe('shareable report data', () => {
 
   it('can omit covers', async () => {
     const withCovers = await report();
-    expect(withCovers.albums!.list.some((x) => x.art === 'art/a.jpg')).toBe(true);
+    expect(withCovers.albums!.list!.some((x) => x.art === 'art/a.jpg')).toBe(true);
     const r = await report({ covers: false });
     expect(JSON.stringify(r)).not.toContain('art/a.jpg');
+  });
+
+  it('a single-plot report holds only that plot and its data', async () => {
+    const map = await report({ plot: 'map' });
+    expect(map.plot).toBe('map');
+    expect(Object.keys(map.patterns!)).toEqual(['map']);
+    expect(map.patterns!.map!.nodes.length).toBeGreaterThan(0);
+    for (const k of ['story', 'top', 'artists', 'albums', 'songs', 'genres', 'habits'] as const) expect(map[k]).toBeUndefined();
+
+    const tl = await report({ plot: 'albums-timeline' });
+    expect(Object.keys(tl.albums!)).toEqual(['timeline']);
+    expect(tl.patterns).toBeUndefined();
+
+    const whole = await report({ plot: 'albums-whole' });
+    expect(Object.keys(whole.albums!)).toEqual(['whole']);
+
+    // Routine plots switch the routine data on; others keep it out.
+    expect((await report({ plot: 'habits-calendar', precision: 'day' })).routine).toBe(true);
+    const disc = await report({ plot: 'habits-discovery' });
+    expect(disc.routine).toBe(false);
+    expect(disc.habits!.days).toEqual([]);
+
+    // A single plot is far smaller than the whole report.
+    const full = JSON.stringify(await report({})).length;
+    expect(JSON.stringify(tl).length).toBeLessThan(full / 3);
   });
 });

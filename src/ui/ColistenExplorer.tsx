@@ -70,7 +70,8 @@ export function ColistenExplorer({ map, theme, onOpenArtist, mapSize, onMapSize 
 
   // The map fills the card width and (almost) the window height; the clusters are fitted and
   // centred in it whatever their overall shape.
-  const winH = typeof window !== 'undefined' ? window.innerHeight : 900;
+  // Inside an iframe the window height follows our own content, so it cannot size the map.
+  const winH = typeof window === 'undefined' || window.self !== window.top ? 10_000 : window.innerHeight;
   const H = full ? Math.max(360, winH - 90) : W < 600 ? 460 : Math.round(Math.max(520, Math.min(winH - 120, W * 0.68, 900)));
   const pad = W < 600 ? 34 : 56;
   const ext = useMemo(() => {

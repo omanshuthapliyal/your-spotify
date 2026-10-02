@@ -1,7 +1,10 @@
+{{/* Embed a listening report. section="albums" shows one report section; plot="map" one plot. */}}
 {{ $id := printf "lr-%d" .Ordinal }}
-<iframe id="{{ $id }}" src="{{ .Get "src" | relURL }}#{{ .Get "section" | default "story" }}&embed"
+{{ $target := .Get "section" | default "story" }}
+{{ with .Get "plot" }}{{ $target = printf "plot=%s" . }}{{ end }}
+<iframe id="{{ $id }}" src="{{ printf "%s#%s&embed" (.Get "src" | relURL) $target | safeURL }}"
         title="{{ .Get "title" | default "Listening report" }}" loading="lazy" allowfullscreen
-        style="width:100%;border:0;min-height:640px"></iframe>
+        style="width:100%;border:0;min-height:{{ .Get "height" | default "420" }}px"></iframe>
 <script>
 (function () {
   var f = document.getElementById("{{ $id }}");
