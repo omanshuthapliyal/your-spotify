@@ -3,42 +3,24 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GEN, uploadZip, chartOption, exportAs, openOptions, openDataQuality, goSection, openSettings, openFilters } from './helpers';
 
-test('defaults: top 12 above the axis, Other below it on the same scale', async ({ page }) => {
+test('defaults: top 12, distinct colours; Other is never drawn and has no option', async ({ page }) => {
   await uploadZip(page, { top: null });
   await expect(page.getByTestId('chart-title').first()).toContainText('top 12 artists', { ignoreCase: true });
-  await expect(page.locator('[data-zero-line]')).toHaveCount(1);
-  await expect(page.locator('path[data-series="Other artists"]')).toHaveCount(1);
-  // Other (1 artist outside the top 12) is drawn below zero: its path lies under the zero line.
-  const zeroY = await page.locator('[data-zero-line] line').getAttribute('y1');
-  const box = (await page.locator('path[data-series="Other artists"]').boundingBox())!;
-  const svgBox = (await page.locator('svg.chart-svg').boundingBox())!;
-  expect(box.y - svgBox.y).toBeGreaterThanOrEqual(Number(zeroY) + 12 - 2);
-  await expect(page.locator('svg.chart-svg text').filter({ hasText: 'All other artists (below)' })).toHaveCount(1);
-  await page.getByRole('radio', { name: 'Flow' }).click();
-  await expect(page.locator('[data-zero-line]')).toHaveCount(1);
-  // 12 distinct colours, no two displayed artists share one
-  await page.getByRole('tab', { name: 'Timeline' }).click();
-  const fills = await page.locator('path[data-series]').evaluateAll((els) => els.map((e) => e.getAttribute('fill')));
-  expect(new Set(fills).size).toBe(fills.length);
-});
-
-test('Other modes: below the axis by default, or hidden (axis rescales); only these two exist', async ({ page }) => {
-  await uploadZip(page);
-  await expect(page.locator('path[data-series="Other artists"]')).toHaveCount(1);
-  await expect(page.locator('[data-zero-line]')).toHaveCount(1);
-  await openOptions(page);
-  await expect(page.getByRole('radio', { name: 'Band' })).toHaveCount(0);
-  await expect(page.getByRole('radio', { name: 'Outline' })).toHaveCount(0);
-  await chartOption(page, 'Hide');
   await expect(page.locator('path[data-series="Other artists"]')).toHaveCount(0);
   await expect(page.locator('[data-zero-line]')).toHaveCount(0);
-  await expect(page.getByTestId('other-note')).toContainText('% of listening in range');
   await expect(page.locator('.legend-item', { hasText: 'Other artists' })).toContainText('not drawn');
-  await chartOption(page, 'Below axis');
+  await expect(page.getByTestId('other-note')).toContainText('Not drawn: 1 other artist');
+  await openOptions(page);
+  for (const name of ['Below axis', 'Hide', 'Band', 'Outline']) await expect(page.getByRole('radio', { name })).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await page.getByRole('radio', { name: 'Flow' }).click();
-  await expect(page.locator('rect[data-node="Other artists"]')).toHaveCount(15);
-  await chartOption(page, 'Hide');
   await expect(page.locator('rect[data-node="Other artists"]')).toHaveCount(0);
+  await expect(page.locator('[data-zero-line]')).toHaveCount(0);
+  // 12 distinct colours, no two displayed artists share one
+  await page.getByRole('radio', { name: 'Stream' }).click();
+  const fills = await page.locator('path[data-series]').evaluateAll((els) => els.map((e) => e.getAttribute('fill')));
+  expect(fills).toHaveLength(12);
+  expect(new Set(fills).size).toBe(fills.length);
 });
 
 test('Top by: charts and lists pick the top items by time or by times played', async ({ page }) => {
@@ -234,11 +216,11 @@ test('Patterns: eras, tastes, co-listening map and lifecycles; artist panel show
   await expect(page.getByTestId('era-card')).toHaveCount(3);
   await expect(page.getByTestId('era-card').first()).toContainText('Artist A');
 
-  // Tastes: one band per taste plus Other below the line; the count can be changed.
+  // Tastes: one band per taste (other artists are not drawn); the count can be changed.
   await expect(page.getByTestId('taste-card')).toHaveCount(6);
   await page.getByLabel('Number of tastes').selectOption('3');
   await expect(page.getByTestId('taste-card')).toHaveCount(3);
-  await expect(page.getByTestId('tastes').locator('path[data-series]')).toHaveCount(4);
+  await expect(page.getByTestId('tastes').locator('path[data-series]')).toHaveCount(3);
 
   // Map: every top artist is a node; clicking one selects it and lists its partners, from
   // where the artist panel opens. Search finds artists; groups can be focused.

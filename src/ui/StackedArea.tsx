@@ -7,14 +7,11 @@ import { fmtAxis } from './format';
 import { Tooltip, type HoverState } from './Tooltip';
 
 export type Shape = 'smooth' | 'steps';
-/** How the 'Other' series is drawn: mirrored below the zero line on the same scale, or not at all. */
-export type OtherMode = 'below' | 'hidden';
 
 interface Props {
   result: AggregateResult;
   metric: Metric;
   shape: Shape;
-  otherMode: OtherMode;
   width: number;
   theme: Theme;
   highlight: string | null;
@@ -29,8 +26,12 @@ export function chartHeight(width: number) {
   return Math.round(Math.max(300, Math.min(500, width * 0.48)));
 }
 
+/**
+ * Stacked areas of the top items (and Unclassified, for genres). "Other" is never drawn: the
+ * axis covers the top items only, and the legend states the share left out.
+ */
 export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea(
-  { result, metric, shape, otherMode, width, theme, highlight, onSelect }, ref,
+  { result, metric, shape, width, theme, highlight, onSelect }, ref,
 ) {
   const [hover, setHover] = useState<HoverState | null>(null);
   const clipId = `clip-${useId().replace(/:/g, '')}`;
@@ -43,24 +44,9 @@ export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea
   const geo = useMemo(() => {
     const visible = result.series.filter((s) => s.kind !== 'other');
     const visibleSum = result.periods.map((p, i) => visible.reduce((a, s) => a + (valueAt(s, p, i, metric) ?? 0), 0));
-    const otherS = result.series.find((s) => s.kind === 'other');
-    const below = otherMode === 'below' && Boolean(otherS);
-    const otherVals = result.periods.map((p, i) => (otherS ? valueAt(otherS, p, i, metric) ?? 0 : 0));
     const yMax = Math.max(1e-9, ...visibleSum);
-    const yMin = below ? -Math.max(0, ...otherVals) : 0;
     const y = scaleLinear().domain([0, yMax]).range([innerH, 0]);
     y.nice(6);
-    // Below-axis, same scale. The bottom fits Other (+6% headroom), keeps at least ~12% of the
-    // height when Other is small, and is CLIPPED at the height of the top stack when Other is far
-    // larger (e.g. albums), so the top N stay readable. Clipping is marked and labelled.
-    let clippedAt: number | null = null;
-    if (below) {
-      const top = y.domain()[1];
-      const need = -yMin * 1.06;
-      const depth = Math.max(Math.min(need, top), top * 0.14);
-      if (need > top) clippedAt = top;
-      y.domain([-depth, top]);
-    }
     // stack: series[0] at the bottom
     const cum = new Array(P).fill(0);
     const layers = visible.map((s) => {
@@ -72,10 +58,6 @@ export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea
       });
       return { s, pts };
     });
-    if (below && otherS) {
-      // Other hangs below zero: same scale, drawn downward.
-      layers.push({ s: otherS, pts: result.periods.map((p, i) => ({ i, v0: 0, v1: -otherVals[i], defined: valueAt(otherS, p, i, metric) !== null })) });
-    }
     const gen = area<Pt>().x((d) => d.x).y0((d) => d.y0).y1((d) => d.y1).defined((d) => d.defined)
       .curve(shape === 'smooth' ? curveMonotoneX : curveLinear);
     const paths = layers.map(({ s, pts }) => {
@@ -105,7 +87,7 @@ export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea
         const h = Math.abs(y(p.v0) - y(p.v1));
         if (p.defined && h > bestH) { bestH = h; best = i; }
       });
-      const label = (s.kind === 'item' || (below && s.kind === 'other')) && bestH >= 18 && best >= 0
+      const label = s.kind === 'item' && bestH >= 18 && best >= 0
         ? { x: (best + 0.5) * bw, y: (y(pts[best].v0) + y(pts[best].v1)) / 2 }
         : null;
       return { s, d: gen(line) ?? '', pts, label, labelH: bestH };
@@ -122,8 +104,8 @@ export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea
       if (kept.some((k) => box.x0 < k.x1 && box.x1 > k.x0 && box.y0 < k.y1 && box.y1 > k.y0)) paths[i].label = null;
       else kept.push(box);
     }
-    return { y, paths, below, clippedAt, otherPeak: Math.max(0, ...otherVals) };
-  }, [result, metric, shape, otherMode, innerW, innerH, P, bw]);
+    return { y, paths };
+  }, [result, metric, shape, innerW, innerH, P, bw]);
 
   const ticks = geo.y.ticks(5);
   const stride = Math.max(1, Math.ceil(64 / bw));
@@ -157,7 +139,7 @@ export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea
   };
 
   const dim = highlight ?? hover?.key ?? null;
-  const summary = `${METRIC_LABEL[metric]} by ${result.settings.granularity}, ${result.periods[0]?.label ?? ''} to ${result.periods[P - 1]?.label ?? ''}, stacked by ${result.series.map((s) => s.label).join(', ')}.`;
+  const summary = `${METRIC_LABEL[metric]} by ${result.settings.granularity}, ${result.periods[0]?.label ?? ''} to ${result.periods[P - 1]?.label ?? ''}, stacked by ${result.series.filter((s) => s.kind !== 'other').map((s) => s.label).join(', ')}.`;
 
   return (
     <div className="chart-wrap" style={{ height }}>
@@ -185,7 +167,7 @@ export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea
             <g key={t} transform={`translate(0,${geo.y(t)})`}>
               <line x1={0} x2={innerW} stroke={theme.grid} strokeWidth={1} />
               <text x={-8} dy="0.32em" textAnchor="end" fontSize={11} fill={theme.muted} style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {fmtAxis(Math.abs(t), metric)}
+                {fmtAxis(t, metric)}
               </text>
             </g>
           ))}
@@ -243,17 +225,6 @@ export const StackedArea = forwardRef<SVGSVGElement, Props>(function StackedArea
             </text>
           ) : null)}
           <line x1={0} x2={innerW} y1={innerH} y2={innerH} stroke={theme.axis} />
-          {geo.below && geo.clippedAt !== null && (
-            <path data-clipped="" pointerEvents="none" fill="none" stroke={theme.surface} strokeWidth={3}
-              d={`M0,${innerH - 3}` + Array.from({ length: Math.ceil(innerW / 8) }, (_, k) => ` L${(k + 0.5) * 8},${innerH - (k % 2 ? 3 : 9)}`).join('')} />
-          )}
-          {geo.below && (
-            <g pointerEvents="none" data-zero-line="">
-              <line x1={0} x2={innerW} y1={geo.y(0)} y2={geo.y(0)} stroke={theme.ink2} strokeWidth={1.5} />
-              <text x={innerW - 4} y={6} dy="0.7em" textAnchor="end" fontSize={11.5} fill={theme.ink2} fontWeight={600} stroke={theme.surface} strokeWidth={3} paintOrder="stroke">Top {result.topIds.length} {({ artist: 'artists', album: 'albums', track: 'songs', genre: 'genres', branch: 'branches' } as Record<string, string>)[result.series[0]?.key.split(':')[0] ?? 'artist'] ?? 'items'} (above)</text>
-              <text x={innerW - 4} y={innerH - 6} textAnchor="end" fontSize={11.5} fill={theme.ink2} fontWeight={600} stroke={theme.surface} strokeWidth={3} paintOrder="stroke">{geo.clippedAt !== null ? <>All other {({ artist: 'artists', album: 'albums', track: 'songs', genre: 'genres', branch: 'branches' } as Record<string, string>)[result.series[0]?.key.split(':')[0] ?? 'artist'] ?? 'items'} (below) · clipped, peaks at {fmtAxis(geo.otherPeak, metric)}</> : <>All other {({ artist: 'artists', album: 'albums', track: 'songs', genre: 'genres', branch: 'branches' } as Record<string, string>)[result.series[0]?.key.split(':')[0] ?? 'artist'] ?? 'items'} (below)</>}</text>
-            </g>
-          )}
           {labelIdx.map((i) => (
             <text key={i} x={(i + 0.5) * bw} y={innerH + 20} textAnchor="middle" fontSize={11} fill={theme.muted}>
               {result.periods[i].label}

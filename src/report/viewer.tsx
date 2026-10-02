@@ -96,14 +96,14 @@ function KindPanel({ block, kind, theme, whole, dateFmt, only }: {
           : view === 'eras' && block.eras ? <ErasChart result={block.eras} metric="hours" sort="peak" width={width} theme={theme} onSelect={() => undefined} />
           : view === 'ranks' && block.ranks ? <BumpChart result={block.ranks.agg} ranks={block.ranks.ranks} metric="hours" maxRank={10} width={width} theme={theme} highlight={hover} onSelect={() => undefined} />
           : view === 'timeline' && block.timeline ? (style === 'flow'
-            ? <FlowChart result={block.timeline} metric="hours" otherMode="below" width={width} theme={theme} highlight={hover} onSelect={() => undefined} />
-            : <StackedArea result={block.timeline} metric="hours" shape="smooth" otherMode="below" width={width} theme={theme} highlight={hover} onSelect={() => undefined} />)
+            ? <FlowChart result={block.timeline} metric="hours" width={width} theme={theme} highlight={hover} onSelect={() => undefined} />
+            : <StackedArea result={block.timeline} metric="hours" shape="smooth" width={width} theme={theme} highlight={hover} onSelect={() => undefined} />)
           : <p className="muted">Not included in this report.</p>}
       </div>
       {view === 'ranks' && block.ranks && (
-        <Legend result={{ ...block.ranks.agg, series: block.ranks.agg.series.filter((x) => x.kind === 'item') }} metric="hours" theme={theme} pinned={null} otherMode="below" onHover={setHover} onTogglePin={() => undefined} />
+        <Legend result={{ ...block.ranks.agg, series: block.ranks.agg.series.filter((x) => x.kind === 'item') }} metric="hours" theme={theme} pinned={null} onHover={setHover} onTogglePin={() => undefined} />
       )}
-      {view === 'timeline' && block.timeline && <Legend result={block.timeline} metric="hours" theme={theme} pinned={null} otherMode="below" onHover={setHover} onTogglePin={() => undefined} />}
+      {view === 'timeline' && block.timeline && <Legend result={block.timeline} metric="hours" theme={theme} pinned={null} onHover={setHover} onTogglePin={() => undefined} />}
     </section>
   );
 }
@@ -154,10 +154,10 @@ function GenrePanel({ g, theme, only }: { g: NonNullable<ReportData['genres']>; 
       )}
       <div ref={ref} className="chart-area">
         {view === 'list' && table ? <Leaderboard kind="genre" table={table} minSeconds={30} by="time" onOpen={() => undefined} />
-          : tl ? <StackedArea key={cur} result={tl} metric="hours" shape="smooth" otherMode="below" width={width} theme={theme} highlight={hover} onSelect={(key) => open(key)} />
+          : tl ? <StackedArea key={cur} result={tl} metric="hours" shape="smooth" width={width} theme={theme} highlight={hover} onSelect={(key) => open(key)} />
           : <p className="muted">Not included in this report.</p>}
       </div>
-      {view === 'timeline' && tl && <Legend result={tl} metric="hours" theme={theme} pinned={null} otherMode="below" onHover={setHover} onTogglePin={(key) => open(key)} />}
+      {view === 'timeline' && tl && <Legend result={tl} metric="hours" theme={theme} pinned={null} onHover={setHover} onTogglePin={(key) => open(key)} />}
     </section>
   );
 }

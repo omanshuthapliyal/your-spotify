@@ -9,7 +9,7 @@ import { useWorkerQuery } from './useQuery';
 import { useWidth } from './useWidth';
 import { seriesColor, type Theme } from './theme';
 import { Segmented } from './Controls';
-import { StackedArea, type OtherMode, type Shape } from './StackedArea';
+import { StackedArea, type Shape } from './StackedArea';
 import { FlowChart } from './FlowChart';
 import { ErasChart, type ErasSort } from './ErasChart';
 import { BumpChart } from './BumpChart';
@@ -28,7 +28,6 @@ const OFFSETS = Array.from({ length: 27 }, (_, i) => i - 12);
 
 export interface ChartOptions {
   style: 'stream' | 'flow';
-  otherMode: OtherMode;
   shape: Shape;
   laneCount: number;
   erasSort: ErasSort;
@@ -170,7 +169,7 @@ export function ExploreView(p: Props) {
     if (!result || view === 'eras' || view === 'clock' || view === 'list') return [];
     const total = result.included.ms;
     return [...result.series].reverse()
-      .filter((s) => (view === 'ranks' ? s.kind === 'item' : !(s.kind === 'other' && opts.otherMode === 'hidden')))
+      .filter((s) => (view === 'ranks' ? s.kind === 'item' : s.kind !== 'other'))
       .map((s) => ({
         label: s.kind === 'other' ? `${s.label} (${s.memberCount})` : s.label,
         color: seriesColor(s, theme),
@@ -187,7 +186,7 @@ export function ExploreView(p: Props) {
       title: title.replace(/^Top/, 'My top').replace(/^When you/, 'When I'),
       subtitle: [
         `${subtitle[view]} (UTC)`,
-        `Filters: plays of at least ${settings.minMs / 1000} s · top ${many} by ${byLabel}${usesOther ? ` · other ${many} ${opts.otherMode === 'below' ? 'shown below the line' : `not drawn (${otherShare.toFixed(0)}%)`}` : ''}${p.context ? ` · scope: ${p.context}` : ''}`,
+        `Filters: plays of at least ${settings.minMs / 1000} s · top ${many} by ${byLabel}${usesOther ? ` · other ${many} not drawn (${otherShare.toFixed(0)}%)` : ''}${p.context ? ` · scope: ${p.context}` : ''}`,
       ],
       legend: legendEntries(),
       footer: [
@@ -209,6 +208,7 @@ export function ExploreView(p: Props) {
   const highlight = hoverKey ?? pinned;
   const rankResult = result ? { ...result, series: result.series.filter((s) => s.kind === 'item') } : null;
   const hasOptions = view !== 'list' && view !== 'whole';
+  const hasMenu = view === 'eras' || view === 'ranks' || view === 'clock' || (view === 'timeline' && !flow);
 
   // Only unscoped charts can be embedded on their own (a single-plot file has no branch scope).
   const embedId = !p.scope && (p.kind === 'branch' || !p.branch || p.branch === 'root') && PLOT_SECTION[p.kind] && plotById(`${PLOT_SECTION[p.kind]}-${view}`) ? `${PLOT_SECTION[p.kind]}-${view}` : null;
@@ -236,14 +236,10 @@ export function ExploreView(p: Props) {
           {view === 'timeline' && (
             <Segmented<'stream' | 'flow'> label="Show as" value={opts.style} onChange={(v) => p.onOpts({ ...opts, style: v })} options={[['stream', 'Stream'], ['flow', 'Flow']]} />
           )}
-          {hasOptions && (
+          {hasMenu && (
             <details className="menu">
               <summary className="btn ghost">Options</summary>
               <div className="menu-panel" role="group" aria-label="Chart options">
-                {usesOther && (
-                  <Segmented<OtherMode> label={`Other ${many}`} value={opts.otherMode} onChange={(v) => p.onOpts({ ...opts, otherMode: v })}
-                    options={[['below', 'Below axis'], ['hidden', 'Hide']]} />
-                )}
                 {view === 'timeline' && !flow && <Segmented<Shape> label="Shape" value={opts.shape} onChange={(v) => p.onOpts({ ...opts, shape: v })} options={[['smooth', 'Smooth'], ['steps', 'Steps']]} />}
                 {view === 'eras' && (
                   <>
@@ -305,8 +301,7 @@ export function ExploreView(p: Props) {
         <details className="about">
           <summary>
             {fmtInt(result.included.count)} plays · {fmtHours(result.included.ms)}
-            {usesOther && other && opts.otherMode === 'below' && <> · {fmtInt(other.memberCount)} other {other.memberCount === 1 ? one : many} below the line ({otherShare.toFixed(0)}%)</>}
-            {usesOther && other && opts.otherMode === 'hidden' && <> · {fmtInt(other.memberCount)} other {many} hidden ({otherShare.toFixed(0)}%)</>}
+            {usesOther && other && <> · {fmtInt(other.memberCount)} other {other.memberCount === 1 ? one : many} not drawn ({otherShare.toFixed(0)}%)</>}
             <span className="about-link">About these numbers</span>
           </summary>
           <p className="filter-impact" data-testid="filter-impact">
@@ -318,9 +313,7 @@ export function ExploreView(p: Props) {
           </p>
           {usesOther && other && (
             <p data-testid="other-note">
-              {opts.otherMode === 'below'
-                ? <>Below the line: {fmtInt(other.memberCount)} other {other.memberCount === 1 ? one : many}, {fmtHours(other.totalMs)} ({otherShare.toFixed(1)}% of listening in range), on the same scale as the top {n} above it.</>
-                : <>Not drawn: {fmtInt(other.memberCount)} other {other.memberCount === 1 ? one : many}, {fmtHours(other.totalMs)} ({otherShare.toFixed(1)}% of listening in range). The axis shows only the top {n}.</>}
+              Not drawn: {fmtInt(other.memberCount)} other {other.memberCount === 1 ? one : many}, {fmtHours(other.totalMs)} ({otherShare.toFixed(1)}% of listening in range). The axis shows only the top {n}.
             </p>
           )}
           <p className="chart-note">{about[view]}</p>
@@ -338,7 +331,7 @@ export function ExploreView(p: Props) {
             else p.onOpenBranch(`g:${row.name.toLowerCase()}`);
           }} />
         ) : flow ? (
-          <FlowChart ref={svgRef} result={result!} metric={settings.metric} otherMode={opts.otherMode} width={width} theme={theme} highlight={highlight} onSelect={select} />
+          <FlowChart ref={svgRef} result={result!} metric={settings.metric} width={width} theme={theme} highlight={highlight} onSelect={select} />
         ) : view === 'eras' ? (
           <ErasChart ref={svgRef} result={result!} metric={settings.metric} sort={opts.erasSort} width={width} theme={theme} onSelect={select} />
         ) : view === 'ranks' ? (
@@ -346,7 +339,7 @@ export function ExploreView(p: Props) {
         ) : view === 'clock' ? (
           <ClockChart ref={svgRef} clock={clock!} width={width} theme={theme} />
         ) : (
-          <StackedArea ref={svgRef} result={result!} metric={settings.metric} shape={opts.shape} otherMode={opts.otherMode} width={width} theme={theme} highlight={highlight} onSelect={select} />
+          <StackedArea ref={svgRef} result={result!} metric={settings.metric} shape={opts.shape} width={width} theme={theme} highlight={highlight} onSelect={select} />
         )}
       </div>
       {shown && (view === 'timeline' || view === 'ranks') && (
@@ -355,7 +348,6 @@ export function ExploreView(p: Props) {
           metric={settings.metric}
           theme={theme}
           pinned={pinned}
-          otherMode={opts.otherMode}
           onHover={setHoverKey}
           onTogglePin={(k) => setPinned((x) => (x === k ? null : k))}
         />

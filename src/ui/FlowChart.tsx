@@ -4,12 +4,11 @@ import { layoutFlow, type FlowNode } from '../core/flow';
 import { seriesColor, type Theme } from './theme';
 import { fmtMetric } from './format';
 import { Tooltip, tipStyle, type HoverState } from './Tooltip';
-import { chartHeight, type OtherMode } from './StackedArea';
+import { chartHeight } from './StackedArea';
 
 interface Props {
   result: AggregateResult;
   metric: Metric;
-  otherMode: OtherMode;
   width: number;
   theme: Theme;
   highlight: string | null;
@@ -29,10 +28,11 @@ function placeLabels<T extends { y: number }>(items: T[], minGap: number, top: n
   return out;
 }
 
-export const FlowChart = forwardRef<SVGSVGElement, Props>(function FlowChart({ result: full, metric, otherMode, width, theme, highlight, onSelect }, ref) {
+export const FlowChart = forwardRef<SVGSVGElement, Props>(function FlowChart({ result: full, metric, width, theme, highlight, onSelect }, ref) {
   const result = useMemo(
-    () => (otherMode === 'hidden' ? { ...full, series: full.series.filter((s) => s.kind !== 'other') } : full),
-    [full, otherMode],
+    // "Other" is never drawn; the legend states its share.
+    () => ({ ...full, series: full.series.filter((s) => s.kind !== 'other') }),
+    [full],
   );
   const [hover, setHover] = useState<HoverState | null>(null);
   const narrow = width < 640;
@@ -44,8 +44,8 @@ export const FlowChart = forwardRef<SVGSVGElement, Props>(function FlowChart({ r
   const nodeWidth = Math.max(4, Math.min(14, (innerW / Math.max(1, P)) * 0.28));
 
   const layout = useMemo(
-    () => layoutFlow(result, metric, { width: innerW, height: innerH, nodeWidth, gap: P > 30 ? 1.5 : 3, otherBelow: otherMode === 'below' }),
-    [result, metric, innerW, innerH, nodeWidth, P, otherMode],
+    () => layoutFlow(result, metric, { width: innerW, height: innerH, nodeWidth, gap: P > 30 ? 1.5 : 3 }),
+    [result, metric, innerW, innerH, nodeWidth, P],
   );
   const seriesByKey = useMemo(() => new Map(result.series.map((s) => [s.key, s])), [result]);
 
@@ -112,9 +112,6 @@ export const FlowChart = forwardRef<SVGSVGElement, Props>(function FlowChart({ r
               <text x={c.x} y={innerH / 2} fontSize={11} fill={theme.muted} textAnchor="middle" transform={`rotate(-90 ${c.x} ${innerH / 2})`}>no plays</text>
             </g>
           ) : null)}
-          {layout.baseline !== null && (
-            <line x1={-6} x2={innerW + 6} y1={layout.baseline + (P > 30 ? 1.5 : 3)} y2={layout.baseline + (P > 30 ? 1.5 : 3)} stroke={theme.ink2} strokeWidth={1.5} data-zero-line="" pointerEvents="none" />
-          )}
           {layout.ribbons.map((r) => {
             const s = seriesByKey.get(r.seriesKey)!;
             return (
@@ -145,19 +142,12 @@ export const FlowChart = forwardRef<SVGSVGElement, Props>(function FlowChart({ r
                 data-node={s.label}
                 data-period={result.periods[n.periodIndex].label}
                 data-value={n.value}
-                data-clipped={n.clipped ? '' : undefined}
                 onPointerEnter={() => nodeHover(n)}
                 onClick={() => onSelect(n.seriesKey, n.periodIndex)}
                 style={{ cursor: 'pointer' }}
               />
             );
           })}
-          {layout.nodes.filter((n) => n.clipped).map((n) => (
-            <path key={`cut${n.periodIndex}`} pointerEvents="none" stroke={theme.surface} strokeWidth={2.5} fill="none"
-              d={`M${n.x0 - 3},${n.y1 - 7} L${n.x1 + 3},${n.y1 - 12} M${n.x0 - 3},${n.y1 - 2} L${n.x1 + 3},${n.y1 - 7}`}>
-              <title>Clipped: Other is taller than shown</title>
-            </path>
-          ))}
           {!narrow && edgeLabels(firstCol, 'left')}
           {!narrow && edgeLabels(lastCol, 'right')}
           {entryLabels.map((n) => (!dim || dim === n.seriesKey) && (

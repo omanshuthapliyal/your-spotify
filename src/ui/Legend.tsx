@@ -1,19 +1,18 @@
 import type { AggregateResult, Metric } from '../core/aggregate';
 import { seriesColor, type Theme } from './theme';
 import { fmtHours, fmtMetric } from './format';
-import type { OtherMode } from './StackedArea';
 
 interface Props {
   result: AggregateResult;
   metric: Metric;
   theme: Theme;
   pinned: string | null;
-  otherMode?: OtherMode;
   onHover: (key: string | null) => void;
   onTogglePin: (key: string) => void;
 }
 
-export function Legend({ result, metric, theme, pinned, otherMode = 'below', onHover, onTogglePin }: Props) {
+/** Legend for stacked charts. "Other" is never drawn, so it is listed with an outline swatch and "not drawn". */
+export function Legend({ result, metric, theme, pinned, onHover, onTogglePin }: Props) {
   const total = result.included.ms;
   // Top of the stack first, matching the visual order.
   const items = [...result.series].reverse();
@@ -37,10 +36,10 @@ export function Legend({ result, metric, theme, pinned, otherMode = 'below', onH
             >
               <span
                 className={`swatch${s.kind === 'unclassified' ? ' hatched' : ''}`}
-                style={s.kind === 'other' && otherMode === 'hidden' ? { background: 'transparent', border: `1.5px solid ${theme.ink2}` } : { background: seriesColor(s, theme) }}
+                style={s.kind === 'other' ? { background: 'transparent', border: `1.5px solid ${theme.ink2}` } : { background: seriesColor(s, theme) }}
               />
               <span className="legend-label">{s.label}{s.kind === 'other' ? ` (${s.memberCount})` : ''}</span>
-              <span className="legend-value">{summary}{s.kind === 'other' && otherMode === 'hidden' ? ' · not drawn' : s.kind === 'other' ? ' · below the line' : ''}</span>
+              <span className="legend-value">{summary}{s.kind === 'other' ? ' · not drawn' : ''}</span>
             </button>
           </li>
         );

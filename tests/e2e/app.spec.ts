@@ -28,12 +28,12 @@ test.describe('import -> audit -> chart -> controls', () => {
   test('renders the stacked timeline with eras, Other, and a marked empty period', async ({ page }) => {
     await uploadZip(page);
     const series = await page.locator('path[data-series]').evaluateAll((els) => els.map((e) => e.getAttribute('data-series')));
-    expect(series).toEqual(['Artist B', 'Artist A', 'Artist C', 'Artist D', 'Artist E', 'Artist F', 'Other artists']);
+    expect(series).toEqual(['Artist B', 'Artist A', 'Artist C', 'Artist D', 'Artist E', 'Artist F']);
     await expect(page.locator('[data-empty-period="2020 Q3"]')).toHaveCount(1);
     // Tooltip on hover shows exact values
     const hit = page.getByTestId('stack-hit');
     const box = (await hit.boundingBox())!;
-    await hit.hover({ position: { x: box.width * (0.5 / 16), y: box.height - 5 } }); // Band mode: stack starts at the bottom
+    await hit.hover({ position: { x: box.width * (0.5 / 16), y: box.height - 5 } }); // the stack starts at the bottom
     await expect(page.locator('.tooltip')).toContainText('2019 Q1');
     await expect(page.locator('.tooltip')).toContainText('4.0 h');
     await hit.hover({ position: { x: box.width * (6.5 / 16), y: 20 } });
@@ -49,8 +49,8 @@ test.describe('import -> audit -> chart -> controls', () => {
     await page.getByRole('radio', { name: 'Year' }).click();
     await expect(page.locator('[data-empty-period]')).toHaveCount(0);
     await page.getByLabel('Top artists').selectOption('2');
-    await expect(page.locator('path[data-series]')).toHaveCount(3); // 2 above the axis + Other below
-    await expect(page.getByTestId('other-note')).toContainText('Below the line: 11 other artists');
+    await expect(page.locator('path[data-series]')).toHaveCount(2); // Other is not drawn
+    await expect(page.getByTestId('other-note')).toContainText('Not drawn: 11 other artists');
     await setMinPlay(page, 0);
     await expect(page.getByTestId('filter-impact')).toContainText('2,460 plays');
     await page.getByLabel('Range start').selectOption({ label: '2021' });
@@ -69,9 +69,8 @@ test.describe('import -> audit -> chart -> controls', () => {
     await uploadZip(page);
     const hit = page.getByTestId('stack-hit');
     const box = (await hit.boundingBox())!;
-    // The bottom of the stack sits just above the zero line (Other is below it).
-    const zeroY = Number(await page.locator('[data-zero-line] line').getAttribute('y1'));
-    await hit.click({ position: { x: box.width * (1.5 / 16), y: zeroY - 5 } });
+    // The bottom of the stack sits on the axis.
+    await hit.click({ position: { x: box.width * (1.5 / 16), y: box.height - 5 } });
     // Clicking an artist's band opens that artist's detail drawer.
     await expect(page.locator('#entity-title')).toHaveText('Artist B');
     await expect(page.getByTestId('entity-panel').locator('.rank-list').first().locator('li')).toHaveCount(3);

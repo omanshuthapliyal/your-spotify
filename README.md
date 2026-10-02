@@ -118,8 +118,9 @@ case, accents, punctuation or a leading "The" are listed as possible variants an
 - Minimum play duration defaults to 30 s (exactly 30 000 ms counts). Excluded plays and hours are
   shown.
 - **Top N** (default 12, up to 20) is chosen once across the displayed range by the selected
-  measure. Everything else is summed into "Other", so period totals always reconcile. Other is
-  drawn below the axis by default, or can be hidden.
+  measure. Everything else is summed into "Other", which is never drawn: the charts show the top
+  N only, and the legend and the "About these numbers" note state how much Other holds, so the
+  accounting stays complete.
 - **Colours follow the item, not its rank**: 8 validated hues in 3 lightness tiers, seeded from
   the all-time top items, stable across periods, views and filter changes.
 - **Default range**: if a few isolated plays sit far before or after regular listening (at most 2%
@@ -135,8 +136,8 @@ case, accents, punctuation or a leading "The" are listed as possible variants an
 
 ### What the flow view's ribbons mean
 
-Each column is a period; nodes are the same top-N + Other series as the timeline, so column
-heights equal the stacked totals. A ribbon joins **the same item** in two adjacent non-empty
+Each column is a period; nodes are the same top-N series as the timeline (Other is not drawn),
+so column heights equal the stacked totals. A ribbon joins **the same item** in two adjacent non-empty
 periods. **Ribbons never connect different items**: the export records totals, not transitions,
 so a crossing ribbon only means the ranking changed.
 
@@ -156,8 +157,8 @@ it is.
   Months with under an hour (or under 10% of a typical month) join the era around them.
 - **Tastes** (KL non-negative matrix factorisation, i.e. a PLSA topic model, of the month x
   artist share matrix for your top 80 artists). Tastes are named by their top artists, never by
-  invented labels. Each play's hours are split across tastes in proportion to the model, and
-  other artists go below the line, so the bands add up to your real listening. Five fits from
+  invented labels. Each play's hours are split across tastes in proportion to the model, so the
+  bands add up to your real listening of the modelled artists (other artists are not drawn). Five fits from
   different random starts give each taste a stability score (stable / fairly stable / loose):
   real listening often has groups that can be split more than one way. You can choose 3 to 10 tastes.
 - **Who you play together** (the co-listening map, first on the Patterns page). Sessions (no

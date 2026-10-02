@@ -297,14 +297,14 @@ export function PatternsBody({ p, theme, onOpenArtist, k, onK, mapSize, onMapSiz
         {t ? (
           <>
             <div ref={tref} className="chart-area">
-              <StackedArea result={t.result} metric="hours" shape="smooth" otherMode="below" width={twidth} theme={theme} highlight={pinned ?? hover} onSelect={() => undefined} />
+              <StackedArea result={t.result} metric="hours" shape="smooth" width={twidth} theme={theme} highlight={pinned ?? hover} onSelect={() => undefined} />
             </div>
-            <Legend result={t.result} metric="hours" theme={theme} pinned={pinned} otherMode="below" onHover={setHover} onTogglePin={(key) => setPinned(pinned === key ? null : key)} />
+            <Legend result={t.result} metric="hours" theme={theme} pinned={pinned} onHover={setHover} onTogglePin={(key) => setPinned(pinned === key ? null : key)} />
             {compact
               ? <details className="note-toggle"><summary>Artists in each taste</summary><ol className="taste-cards">{t.tastes.map((x) => <TasteCard key={x.index} t={x} theme={theme} onOpenArtist={onOpenArtist} />)}</ol></details>
               : <ol className="taste-cards">{t.tastes.map((x) => <TasteCard key={x.index} t={x} theme={theme} onOpenArtist={onOpenArtist} />)}</ol>}
             <Note>
-              Non-negative matrix factorisation (a topic model) of your top {t.artists} artists over {t.fittedMonths} months; they cover {pct(t.modelledShare)} of your listening, the rest is below the line.
+              Non-negative matrix factorisation (a topic model) of your top {t.artists} artists over {t.fittedMonths} months; they cover {pct(t.modelledShare)} of your listening; the rest (other artists) is not drawn.
               Each play's hours are split across tastes, so the bands add up to your real listening. Stability compares five fits from different random starts.
             </Note>
           </>

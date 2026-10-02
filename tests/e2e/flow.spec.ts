@@ -3,10 +3,12 @@ import { uploadZip, toggleTable } from './helpers';
 
 async function tableTotals(page: Page) {
   await toggleTable(page);
-  const rows = await page.locator('.data-table tbody tr').evaluateAll((trs) => trs.map((tr) => {
+  const head = await page.locator('.data-table thead th').allTextContents();
+  const otherCol = head.findIndex((h) => h.startsWith('Other'));
+  const rows = await page.locator('.data-table tbody tr').evaluateAll((trs, oc) => trs.map((tr) => {
     const cells = [...tr.querySelectorAll('th,td')].map((c) => c.textContent ?? '');
-    return { label: cells[0], total: cells[cells.length - 1] };
-  }));
+    return { label: cells[0], total: cells[cells.length - 1], other: oc >= 0 ? cells[oc] : '0' };
+  }), otherCol);
   await toggleTable(page);
   return rows;
 }
@@ -19,6 +21,7 @@ async function flowTotals(page: Page) {
   });
 }
 
+// Other is never drawn, so each flow column holds the period total minus Other.
 for (const metric of ['Hours', 'Share', 'Plays']) {
   test(`flow column totals match the stacked view (${metric})`, async ({ page }) => {
     await uploadZip(page);
@@ -33,12 +36,12 @@ for (const metric of ['Hours', 'Share', 'Plays']) {
         continue;
       }
       const v = flow[row.label];
-      const shown = Number(row.total.replace(/[^0-9.]/g, ''));
+      const num = (t: string) => Number(t.replace(/[^0-9.]/g, '')) || 0;
+      const shown = num(row.total) - num(row.other);
       // Table shows 1 decimal (hours/share) or integers (plays): allow half a display unit.
-      expect(Math.abs(v - shown), `${row.label}: flow ${v} vs table ${row.total}`).toBeLessThanOrEqual(metric === 'Plays' ? 0 : 0.05 + 1e-9);
+      expect(Math.abs(v - shown), `${row.label}: flow ${v} vs table ${row.total} - ${row.other}`).toBeLessThanOrEqual(metric === 'Plays' ? 0 : 0.1 + 1e-9);
     }
-    // Other is part of the flow
-    await expect(page.locator('rect[data-node="Other artists"]')).toHaveCount(15);
+    await expect(page.locator('rect[data-node="Other artists"]')).toHaveCount(0);
   });
 }
 

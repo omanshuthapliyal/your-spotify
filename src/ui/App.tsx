@@ -45,7 +45,7 @@ const LIB_VIEWS: Record<'artists' | 'albums' | 'songs', ViewKind[]> = {
 };
 const LIST_LABEL = { artists: 'Top artists', albums: 'Top albums', songs: 'Top songs' } as const;
 const LIB_KIND = { artists: 'artist', albums: 'album', songs: 'track' } as const;
-const DEFAULT_OPTS: ChartOptions = { style: 'stream', otherMode: 'below', shape: 'smooth', laneCount: 20, erasSort: 'peak', maxRank: 10, rankPer: 'year', rankBy: 'time', clockZone: 'local', offset: 0 };
+const DEFAULT_OPTS: ChartOptions = { style: 'stream', shape: 'smooth', laneCount: 20, erasSort: 'peak', maxRank: 10, rankPer: 'year', rankBy: 'time', clockZone: 'local', offset: 0 };
 
 function activeToRange(a: ActiveRange) {
   return { from: monthStart(a.fromMonth), to: monthStart(a.toMonth + 1) - 1 };

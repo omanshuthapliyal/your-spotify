@@ -66,31 +66,4 @@ describe('layoutFlow', () => {
     }
   });
 
-  it('baseline mode: items above, Other below, totals and scale unchanged in meaning', () => {
-    const r = aggregate(store, { ...base, topN: 12 });
-    const f = layoutFlow(r, 'hours', { ...dims, otherBelow: true });
-    expect(f.baseline).not.toBeNull();
-    for (const n of f.nodes) {
-      if (n.seriesKey === 'other') expect(n.y0).toBeGreaterThan(f.baseline!);
-      else expect(n.y1).toBeLessThanOrEqual(f.baseline! + 1e-9);
-      if (!n.clipped) expect(n.y1 - n.y0).toBeCloseTo(n.value * f.scale, 6);
-      expect(n.y0).toBeGreaterThanOrEqual(-1e-6);
-      expect(n.y1).toBeLessThanOrEqual(dims.height + 1e-6);
-    }
-    f.columns.forEach((_c, i) => {
-      const sum = f.nodes.filter((n) => n.periodIndex === i).reduce((a, n) => a + n.value, 0);
-      expect(sum).toBeCloseTo(r.periods[i].ms / 3_600_000, 9);
-    });
-  });
-
-  it('caps a dominant Other below the baseline and flags it as clipped', () => {
-    const r = aggregate(store, { ...base, topN: 1 }); // Artist B alone; Other is most of the listening
-    const f = layoutFlow(r, 'hours', { ...dims, otherBelow: true });
-    const others = f.nodes.filter((n) => n.seriesKey === 'other');
-    const tallestTop = Math.max(...f.nodes.filter((n) => n.seriesKey !== 'other').map((n) => n.y1 - n.y0));
-    expect(others.some((n) => n.clipped)).toBe(true);
-    for (const n of others) expect(n.y1 - n.y0).toBeLessThanOrEqual(tallestTop + 1e-6);
-    // values are untouched: clipping is only visual
-    for (const n of others) expect(n.value).toBeCloseTo(r.series.find((s) => s.key === 'other')!.ms[n.periodIndex] / 3_600_000, 9);
-  });
 });
