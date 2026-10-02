@@ -297,3 +297,9 @@ scripts/      fixture generator and the optional MusicBrainz / Cover Art Archive
 fixtures/     deterministic synthetic export generator and sample genre data
 tests/        unit/ (Vitest), e2e/ (Playwright)
 ```
+
+## License
+
+[MIT](LICENSE). You are free to use, modify and share this code. Album covers, genres and other
+data you fetch with the optional scripts come from MusicBrainz and the Cover Art Archive under
+their own terms, and are never part of this repository.
