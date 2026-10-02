@@ -84,8 +84,8 @@ export function App() {
   const [enrichment, setEnrichment] = useState<EnrichmentSummary | null>(null);
   const timeZone = useMemo(() => browserTimeZone(), []);
   /** Share dialog: closed (null), or open with an optional plot preselected. */
-  const [sharing, setSharing] = useState<{ plot: string | null } | null>(null);
-  const embed = useCallback((plot: string) => setSharing({ plot }), []);
+  const [sharing, setSharing] = useState<{ plot: string | null; branch?: { id: string; label: string } } | null>(null);
+  const embed = useCallback((plot: string, branch?: { id: string; label: string }) => setSharing({ plot, branch }), []);
   const coverCount = bakedGenres?.art ? Object.values(bakedGenres.art).filter(Boolean).length : 0;
 
   useEffect(() => {
@@ -316,7 +316,7 @@ export function App() {
           {area === 'explore' && lib === 'genres' && (
             genreSummary && enrichment !== null ? (
               <GenreExplorer client={client} theme={theme} settings={settings} version={version} node={genreNode} onNode={setGenreNode}
-                opts={opts} onOpts={setOpts} onOpenEntity={openEntity} yearsAvailable={yearsAvailable} mbEdges={enrichment.mbEdges} exportNotes={exportNotes} timeZone={timeZone} />
+                opts={opts} onOpts={setOpts} onOpenEntity={openEntity} yearsAvailable={yearsAvailable} mbEdges={enrichment.mbEdges} exportNotes={exportNotes} timeZone={timeZone} onEmbed={embed} />
             ) : (
               <GenrePanel open onToggle={() => undefined} source={genreSource} summary={genreSummary}
                 result={null} error={genreError} onCsv={loadGenres} onTemplate={downloadTemplate} onClear={clearGenres} />
@@ -372,7 +372,7 @@ export function App() {
       )}
 
       {sharing && ready && (
-        <ShareDialog client={client} settings={settings} timeZone={timeZone} hasGenres={Boolean(genreSummary)} initialPlot={sharing.plot} onClose={() => setSharing(null)} />
+        <ShareDialog client={client} settings={settings} timeZone={timeZone} hasGenres={Boolean(genreSummary)} initialPlot={sharing.plot} initialBranch={sharing.branch} onClose={() => setSharing(null)} />
       )}
       {entity && ready && (
         <EntityPanel client={client} theme={theme} settings={settings} entity={entity} version={version} timeZone={timeZone}

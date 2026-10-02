@@ -31,6 +31,7 @@ interface Props {
   mbEdges: number;
   exportNotes: string[];
   timeZone: string;
+  onEmbed?: (plotId: string, branch?: { id: string; label: string }) => void;
 }
 
 function TreeRow({ id, depth, nodes, expanded, toggle, selected, onSelect, path }: {
@@ -174,6 +175,7 @@ export function GenreExplorer(p: Props) {
           version={p.version}
           timeZone={p.timeZone}
           testId="genre-explore"
+          onEmbed={p.onEmbed}
         />
         )}
       </div>

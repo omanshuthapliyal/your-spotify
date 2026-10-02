@@ -23,9 +23,13 @@ const slug = (s: string, fallback: string) => s.toLowerCase().replace(/[^a-z0-9]
  * Export a whole report, or one plot on its own for embedding in a blog post. A one-plot file
  * holds only that plot's data, so it stays small and shares nothing else.
  */
-export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot, onClose }: {
-  client: WorkerClient; settings: AggregateSettings; timeZone: string; hasGenres: boolean; initialPlot?: string | null; onClose: () => void;
+export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot, initialBranch, onClose }: {
+  client: WorkerClient; settings: AggregateSettings; timeZone: string; hasGenres: boolean; initialPlot?: string | null;
+  /** For the genre stream: the branch whose sub-genres to show. */
+  initialBranch?: { id: string; label: string };
+  onClose: () => void;
 }) {
+  const [branch, setBranch] = useState(initialBranch ?? null);
   const [o, setO] = useState<ReportOptions>({ ...DEFAULT_REPORT_OPTIONS, sections: { ...DEFAULT_REPORT_OPTIONS.sections, genres: hasGenres } });
   const [mode, setMode] = useState<'report' | 'plot'>(initialPlot ? 'plot' : 'report');
   const [plotId, setPlotId] = useState(initialPlot ?? 'map');
@@ -44,7 +48,7 @@ export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot
   const plot = mode === 'plot' ? plotById(plotId) : null;
   const groups = [...new Set(plots.map((p) => p.group))];
   const anySection = mode === 'plot' ? plot !== null : Object.values(o.sections).some(Boolean);
-  const file = plot ? `${plot.id}.html` : `${slug(o.title.trim(), 'listening-report')}.html`;
+  const file = plot ? (plot.id === 'genres-timeline' && branch ? `genres-${slug(branch.label, 'branch')}.html` : `${plot.id}.html`) : `${slug(o.title.trim(), 'listening-report')}.html`;
   const usesCovers = !plot || plot.part === 'list' || plot.part === 'whole' || plot.id === 'story';
 
   const create = async () => {
@@ -52,7 +56,7 @@ export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot
     try {
       const viewer = (await import('virtual:report-viewer')).default;
       if (!viewer) throw new Error('The report viewer is not built. Run `npm run build` (it includes `npm run build:report`).');
-      const options: ReportOptions = { ...o, plot: plot?.id ?? null, covers: o.covers && usesCovers };
+      const options: ReportOptions = { ...o, plot: plot?.id ?? null, plotBranch: plot?.id === 'genres-timeline' ? branch?.id ?? null : null, covers: o.covers && usesCovers };
       let data = await client.request<ReportData>({ type: 'report', settings, options, timeZone });
       if (options.covers) data = await embedCovers(data);
       const html = reportHtml(data, viewer);
@@ -85,13 +89,14 @@ export function ShareDialog({ client, settings, timeZone, hasGenres, initialPlot
         {mode === 'plot' ? (
           <>
             <label className="control share-plot"><span className="control-label">Plot</span>
-              <select value={plotId} onChange={(e) => { setPlotId(e.target.value); setDone(null); }} aria-label="Plot to export">
+              <select value={plotId} onChange={(e) => { setPlotId(e.target.value); setBranch(null); setDone(null); }} aria-label="Plot to export">
                 {groups.map((g) => (
                   <optgroup key={g} label={g}>
                     {plots.filter((p) => p.group === g).map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                   </optgroup>
                 ))}
               </select></label>
+            {plot?.id === 'genres-timeline' && branch && <p className="small" data-testid="share-branch">Branch: <b>{branch.label}</b> (its sub-genres over time) <button type="button" className="link" onClick={() => setBranch(null)}>use the top level instead</button></p>}
             <p className="muted small">The file holds only this plot's data and stays fully interactive (hover, zoom, view switches). {plot?.routine ? 'This plot shows your daily routine: when you listen on which days.' : ''}</p>
             <div className="share-grid">
               <label className="control"><span className="control-label">Your name (optional, shown under the plot)</span>

@@ -116,7 +116,7 @@ function GenrePanel({ g, theme, only }: { g: NonNullable<ReportData['genres']>; 
   const table = useMemo(() => (g.list ? { rows: g.list, total: g.list.length, includedMs: g.list.reduce((a, r) => a + r.ms, 0) } : null), [g]);
   return (
     <section className="card chart-card">
-      {only ? <h2 className="chart-title">{only === 'list' ? 'Top genres' : 'Genre branches over time'}</h2> : (
+      {only ? <h2 className="chart-title">{only === 'list' ? 'Top genres' : g.branch ? `${g.branch.label}: sub-genres over time` : 'Genre branches over time'}</h2> : (
         <div className="tabs" role="tablist" aria-label="View">
           {(['timeline', 'list'] as const).map((k) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{k === 'list' ? 'Top genres' : 'Genre branches over time'}</button>)}
         </div>

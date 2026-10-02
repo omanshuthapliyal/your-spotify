@@ -30,6 +30,8 @@ export interface ReportOptions {
   listSize: number;
   /** Export one plot only (an id from PLOTS); the file then holds just that plot's data. */
   plot?: string | null;
+  /** For the genre stream plot: show the sub-genres of this genre-tree branch instead of the top level. */
+  plotBranch?: string | null;
 }
 
 export const DEFAULT_REPORT_OPTIONS: ReportOptions = {
@@ -65,7 +67,7 @@ export interface ReportData {
   artists?: KindBlock;
   albums?: KindBlock & { whole?: WholeAlbumsResult };
   songs?: KindBlock;
-  genres?: { timeline?: AggregateResult; list?: TableRow[] };
+  genres?: { timeline?: AggregateResult; list?: TableRow[]; branch?: { id: string; label: string } };
   habits?: Insights;
   patterns?: Partial<Patterns>;
   /** Set for a single-plot report: the plot id (see PLOTS). */

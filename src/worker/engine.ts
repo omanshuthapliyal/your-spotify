@@ -531,7 +531,9 @@ export class Engine {
     if (o.sections.songs) r.songs = withRows(block('track'));
     if (o.sections.genres && this.genre) {
       r.genres = {};
-      if (want('timeline')) r.genres.timeline = this.aggregate({ settings: s, kind: 'branch' }, 20, true);
+      const branch = plot && o.plotBranch && o.plotBranch !== ROOT_ID && this.tree?.nodes.has(o.plotBranch) ? o.plotBranch : null;
+      if (want('timeline')) r.genres.timeline = this.aggregate({ settings: s, kind: 'branch', branch }, 20, true);
+      if (branch) r.genres.branch = { id: branch, label: this.tree!.nodes.get(branch)!.label };
       if (want('list')) r.genres.list = rows(this.table({ settings: s, kind: 'genre' }, n).rows);
     }
     if (o.sections.habits || o.sections.routine) r.habits = ins;

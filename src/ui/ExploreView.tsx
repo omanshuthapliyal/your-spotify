@@ -69,7 +69,7 @@ interface Props {
   timeZone: string;
   testId?: string;
   /** Open Share with this chart selected as a single embeddable plot. */
-  onEmbed?: (plotId: string) => void;
+  onEmbed?: (plotId: string, branch?: { id: string; label: string }) => void;
 }
 
 const PLOT_SECTION: Partial<Record<Kind, string>> = { artist: 'artists', album: 'albums', track: 'songs', branch: 'genres' };
@@ -211,7 +211,7 @@ export function ExploreView(p: Props) {
   const hasOptions = view !== 'list' && view !== 'whole';
 
   // Only unscoped charts can be embedded on their own (a single-plot file has no branch scope).
-  const embedId = !p.scope && (!p.branch || p.branch === 'root') && PLOT_SECTION[p.kind] && plotById(`${PLOT_SECTION[p.kind]}-${view}`) ? `${PLOT_SECTION[p.kind]}-${view}` : null;
+  const embedId = !p.scope && (p.kind === 'branch' || !p.branch || p.branch === 'root') && PLOT_SECTION[p.kind] && plotById(`${PLOT_SECTION[p.kind]}-${view}`) ? `${PLOT_SECTION[p.kind]}-${view}` : null;
   return (
     <section className="card chart-card" data-testid={p.testId}>
       {p.views.length > 1 && (
@@ -287,7 +287,7 @@ export function ExploreView(p: Props) {
             </details>
           )}
           {p.onEmbed && embedId && (
-            <button type="button" className="btn ghost" onClick={() => p.onEmbed!(embedId)} title="Export this chart on its own, interactive, for a blog post">Embed</button>
+            <button type="button" className="btn ghost" onClick={() => p.onEmbed!(embedId, p.kind === 'branch' && p.branch && p.branch !== 'root' ? { id: p.branch, label: p.context ?? p.branch } : undefined)} title="Export this chart on its own, interactive, for a blog post">Embed</button>
           )}
           {hasOptions && (
             <details className="menu">

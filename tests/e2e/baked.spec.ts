@@ -29,3 +29,37 @@ test('a baked-in genre mapping, tree and years apply automatically after import'
   await goSection(page, 'Tracks');
   await expect(page.getByTestId('board-row').filter({ hasText: 'Artist A Song 1' }).locator('img.cover')).toHaveCount(1);
 });
+
+test('genre streams are embeddable: top level from Explore > Genres, and any branch', async ({ page, context }) => {
+  await uploadZip(page, { top: null, section: 'Genres' });
+  const explore = page.getByTestId('genre-explore');
+  await explore.getByRole('button', { name: 'Embed' }).click();
+  await expect(page.getByLabel('Plot to export')).toHaveValue('genres-timeline');
+  await expect(page.getByTestId('share-branch')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  // Inside a branch: its sub-genres over time.
+  await page.locator('[data-node="g:rock"]').click();
+  await page.getByRole('tab', { name: 'Sub-genres' }).click();
+  await explore.getByRole('button', { name: 'Embed' }).click();
+  await expect(page.getByTestId('share-branch')).toContainText('Rock');
+  const dl = page.waitForEvent('download');
+  await page.getByTestId('create-report').click();
+  const file = await dl;
+  expect(file.suggestedFilename()).toBe('genres-rock.html');
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(await file.path(), 'utf8');
+  const data = JSON.parse(html.match(/<script id="report-data" type="application\/json">([\s\S]*?)<\/script>/)![1]);
+  expect(data.plot).toBe('genres-timeline');
+  expect(data.genres.branch.label).toBe('Rock');
+  expect(data.genres.timeline.series.map((s: { label: string }) => s.label)).toContain('Indie Rock');
+  expect(data.genres.list).toBeUndefined();
+  const { copyFileSync, mkdirSync } = await import('node:fs');
+  const { resolve } = await import('node:path');
+  mkdirSync('screenshots', { recursive: true });
+  copyFileSync(await file.path(), 'screenshots/sample-genres-rock.html');
+  const viewer = await context.newPage();
+  await viewer.goto(`file://${resolve('screenshots/sample-genres-rock.html')}#plot=genres-timeline&embed`);
+  await expect(viewer.getByRole('heading', { name: 'Rock: sub-genres over time' })).toBeVisible();
+  await expect(viewer.locator('path[data-series="Indie Rock"]')).toHaveCount(1);
+});
